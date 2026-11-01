@@ -1,0 +1,16 @@
+{
+  "users": [
+    {
+      "id": "96461b3426190c2f",
+      "username": "vip001",
+      "pwd": "pbkdf2$e3ab5a07e423e9a3$738f8e451e7f14b5a3771c0d6a4ba26bbfab03a848594a6e941dd973a3e58e8a",
+      "plain": "vip888",
+      "expires": 1796156737,
+      "enabled": true,
+      "group": "",
+      "remark": "test",
+      "created": 1793564737
+    }
+  ],
+  "updated": 1793564737
+}
