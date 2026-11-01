@@ -168,6 +168,10 @@ final class TunnelManager: ObservableObject {
 
     // MARK: 延迟测试（直连 SOCKS5 端口，测 TCP 握手耗时）
     func ping(_ server: ProxyServer) async -> Int? {
+        await Self.pingStatic(server)
+    }
+
+    nonisolated static func pingStatic(_ server: ProxyServer) async -> Int? {
         guard server.isValid else { return nil }
         let start = Date()
         let ok: Bool = await withCheckedContinuation { cont in
@@ -190,6 +194,58 @@ final class TunnelManager: ObservableObject {
         }
         guard ok else { return nil }
         return Int(Date().timeIntervalSince(start) * 1000)
+    }
+
+    // MARK: - 线路操作
+
+    func fastestNodes(limit: Int) -> [ProxyServer] {
+        let measured = servers.filter { $0.latency != nil }
+        let sorted = measured.sorted { ($0.latency ?? 99999) < ($1.latency ?? 99999) }
+        return Array(sorted.prefix(limit))
+    }
+
+    func importNodes(_ nodes: [ProxyServer]) {
+        guard !nodes.isEmpty else { return }
+        var seen = Set(servers.map { "\($0.host):\($0.port)" })
+        for n in nodes {
+            let key = "\(n.host):\(n.port)"
+            if seen.contains(key) { continue }
+            seen.insert(key)
+            servers.append(n)
+        }
+        persistServers()
+        if selectedID == nil { selectedID = servers.first?.id }
+        Task { await refreshLatencies() }
+    }
+
+    /// 选中一条线路；若当前已连接，则断开重连到新线路
+    func activate(_ server: ProxyServer) async {
+        let wasOn = isOn
+        selectedID = server.id
+        persistServers()
+        guard wasOn else { return }
+        await stop()
+        try? await Task.sleep(nanoseconds: 500_000_000)
+        await start()
+    }
+
+    /// 并发测所有线路的握手延迟
+    func refreshLatencies() async {
+        let snapshot = servers
+        guard !snapshot.isEmpty else { return }
+        var results: [UUID: Int] = [:]
+        await withTaskGroup(of: (UUID, Int?).self) { group in
+            for s in snapshot {
+                group.addTask { (s.id, await TunnelManager.pingStatic(s)) }
+            }
+            for await (id, ms) in group {
+                if let ms { results[id] = ms }
+            }
+        }
+        for i in servers.indices {
+            servers[i].latency = results[servers[i].id]
+        }
+        persistServers()
     }
 
     // MARK: - 诊断
