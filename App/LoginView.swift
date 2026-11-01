@@ -6,12 +6,12 @@ struct LoginView: View {
 
     @EnvironmentObject var tunnel: TunnelManager
 
-    @State private var backend = SharedStore.syncConfig.baseURL
+    @State private var backend = SharedStore.syncConfig.baseURL.isEmpty
+        ? "" : SharedStore.syncConfig.baseURL
     @State private var account = SharedStore.accountName
     @State private var password = ""
     @State private var busy = false
     @State private var error: String?
-    @State private var showBackend = !SharedStore.syncConfig.baseURL.isEmpty
 
     var body: some View {
         ZStack {
@@ -25,9 +25,8 @@ struct LoginView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
-                    Spacer(minLength: 54)
+                    Spacer(minLength: 44)
 
-                    // 品牌
                     VStack(spacing: 14) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -49,24 +48,25 @@ struct LoginView: View {
                                 .background(Capsule().fill(Theme.accent.opacity(0.16)))
                         }
                     }
-                    .padding(.bottom, 34)
+                    .padding(.bottom, 30)
 
-                    // 表单
-                    VStack(spacing: 14) {
-                        field(icon: "person.fill", placeholder: "账号", text: $account, secure: false)
+                    VStack(spacing: 13) {
+                        field(icon: "server.rack",
+                              placeholder: "服务器地址，如 http://1.2.3.4:8787",
+                              text: $backend, keyboard: .URL)
+
+                        field(icon: "person.fill", placeholder: "账号", text: $account)
+
                         field(icon: "lock.fill", placeholder: "密码", text: $password, secure: true)
-
-                        if showBackend {
-                            field(icon: "server.rack", placeholder: "后台地址，如 http://1.2.3.4:8787",
-                                  text: $backend, secure: false, keyboard: .URL)
-                        }
 
                         Button {
                             Task { await doLogin() }
                         } label: {
                             HStack {
-                                if busy { ProgressView().tint(.white).padding(.trailing, 4) }
-                                Text(busy ? "登录中…" : "登 录")
+                                if busy {
+                                    ProgressView().tint(.white).padding(.trailing, 4)
+                                }
+                                Text(busy ? "验证中…" : "登 录")
                                     .font(.system(size: 15, weight: .semibold))
                             }
                             .frame(maxWidth: .infinity)
@@ -74,8 +74,8 @@ struct LoginView: View {
                             .background(RoundedRectangle(cornerRadius: 14).fill(Theme.gradient))
                             .foregroundColor(.white)
                         }
-                        .disabled(busy || account.isEmpty)
-                        .opacity(account.isEmpty ? 0.5 : 1)
+                        .disabled(busy || account.isEmpty || backend.isEmpty)
+                        .opacity((account.isEmpty || backend.isEmpty) ? 0.5 : 1)
                         .padding(.top, 4)
 
                         if let error {
@@ -83,17 +83,9 @@ struct LoginView: View {
                                 .font(.system(size: 11.5))
                                 .foregroundColor(Theme.bad)
                                 .multilineTextAlignment(.center)
-                                .padding(.horizontal, 8)
+                                .padding(.horizontal, 6)
+                                .padding(.top, 2)
                         }
-
-                        Button {
-                            withAnimation { showBackend.toggle() }
-                        } label: {
-                            Text(showBackend ? "不连接后台，使用本地模式" : "已有网页后台？填地址同步线路")
-                                .font(.system(size: 11.5))
-                                .foregroundColor(.white.opacity(0.38))
-                        }
-                        .padding(.top, 6)
                     }
                     .padding(20)
                     .background(
@@ -105,16 +97,16 @@ struct LoginView: View {
                             .stroke(Theme.line, lineWidth: 1)
                     )
 
-                    Text(showBackend
-                         ? "登录成功后会自动从网页后台同步线路"
-                         : "本地模式：任意账号即可进入，线路在 App 内手动导入")
-                        .font(.system(size: 10.5))
-                        .foregroundColor(.white.opacity(0.25))
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 16)
-                        .padding(.horizontal, 30)
+                    HStack(spacing: 6) {
+                        Image(systemName: "lock.shield")
+                            .font(.system(size: 10))
+                        Text("账号需由管理员在网页后台开通后才能登录")
+                            .font(.system(size: 10.5))
+                    }
+                    .foregroundColor(.white.opacity(0.28))
+                    .padding(.top, 16)
 
-                    Spacer(minLength: 40)
+                    Spacer(minLength: 30)
                 }
                 .padding(.horizontal, 26)
             }
@@ -125,7 +117,7 @@ struct LoginView: View {
     }
 
     private func field(icon: String, placeholder: String, text: Binding<String>,
-                       secure: Bool, keyboard: UIKeyboardType = .default) -> some View {
+                       secure: Bool = false, keyboard: UIKeyboardType = .default) -> some View {
         HStack(spacing: 11) {
             Image(systemName: icon)
                 .font(.system(size: 13))
@@ -155,8 +147,7 @@ struct LoginView: View {
     private func doLogin() async {
         busy = true
         error = nil
-        let err = await tunnel.login(account: account, password: password,
-                                     backend: showBackend ? backend : "")
+        let err = await tunnel.login(account: account, password: password, backend: backend)
         busy = false
         if let err {
             error = err
