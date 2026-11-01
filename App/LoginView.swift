@@ -123,6 +123,23 @@ struct LoginView: View {
                                 .foregroundColor(Theme.accent)
                         }
                         .padding(.top, 6)
+
+                        Divider().overlay(Theme.line).padding(.vertical, 4)
+
+                        Button {
+                            SharedStore.offlineMode = true
+                            SharedStore.isLoggedIn = true
+                            SharedStore.accountName = "离线用户"
+                            onSuccess()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "internaldrive")
+                                    .font(.system(size: 10))
+                                Text("离线模式 · 本地管理线路")
+                                    .font(.system(size: 11.5, weight: .medium))
+                            }
+                            .foregroundColor(.white.opacity(0.45))
+                        }
                     }
                     .padding(20)
                     .background(
