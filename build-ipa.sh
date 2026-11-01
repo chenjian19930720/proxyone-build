@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 DERIVED="build"
-IPA="ProxyOne-unsigned.ipa"
+IPA="待续IP系统.ipa"
 
 echo "==> Xcode:"; xcodebuild -version
 
