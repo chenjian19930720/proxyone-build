@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 @main
 struct ProxyOneApp: App {
@@ -29,6 +30,9 @@ struct ProxyOneApp: App {
             .environmentObject(tunnel)
             .preferredColorScheme(.dark)
             .task { await tunnel.load() }
+            .onReceive(NotificationCenter.default.publisher(for: .proxyOneLogout)) { _ in
+                withAnimation { stage = 1 }
+            }
         }
     }
 
