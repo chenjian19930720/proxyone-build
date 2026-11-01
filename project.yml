@@ -1,0 +1,65 @@
+name: ProxyOne
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: ""                 # put your Team ID here, otherwise signing fails
+    CODE_SIGN_STYLE: Automatic
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
+targets:
+  ProxyOne:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: Shared
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleDisplayName: ProxyOne
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        LSRequiresIPhoneOS: true
+    entitlements:
+      path: Resources/ProxyOne.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.example.proxyone
+    dependencies:
+      - target: ProxyOneTunnel
+        embed: true
+
+  ProxyOneTunnel:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Tunnel
+      - path: Shared
+    info:
+      path: Tunnel/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: ProxyOne Tunnel
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.networkextension.packet-tunnel
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).PacketTunnelProvider
+    entitlements:
+      path: Tunnel/Resources/ProxyOneTunnel.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.example.proxyone
+        com.apple.developer.networking.networkextension:
+          - packet-tunnel-provider
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.proxyone.tunnel
