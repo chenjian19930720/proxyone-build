@@ -102,6 +102,12 @@ enum SharedStore {
         set { defaults.set(newValue, forKey: autoConnectKey) }
     }
 
+    /// 强制保持连接（on-demand）
+    static var alwaysOn: Bool {
+        get { defaults.bool(forKey: "always.on.v1") }
+        set { defaults.set(newValue, forKey: "always.on.v1") }
+    }
+
     static func selectedServer() -> ProxyServer? {
         let all = loadServers()
         if let id = selectedServerID, let s = all.first(where: { $0.id == id }) { return s }
