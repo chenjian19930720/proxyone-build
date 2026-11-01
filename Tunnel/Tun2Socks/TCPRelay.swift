@@ -155,26 +155,35 @@ final class TCPRelay {
     // MARK: SOCKS → 客户端
     private func readFromServer() {
         guard fd >= 0 else { return }
-        var buf = [UInt8](repeating: 0, count: 16384)
-        let n = buf.withUnsafeMutableBytes { read(fd, $0.baseAddress, 16384) }
-        if n > 0 {
-            lastActivity = Date()
-            buf.removeLast(16384 - n)
-            send(seq: sndNxt, ack: rcvNxt, flags: TCPFlags.psh | TCPFlags.ack, payload: buf)
-            sndNxt = sndNxt &+ UInt32(n)
-            unacked.append((sndNxt &- UInt32(n), buf, Date()))
-            if unacked.count > 512 { unacked.removeFirst(unacked.count - 512) }
-        } else if n == 0 {
-            // 服务器正常关闭
-            state = .serverClosed
-            send(seq: sndNxt, ack: rcvNxt, flags: TCPFlags.fin | TCPFlags.ack, payload: [])
-            sndNxt = sndNxt &+ 1
-            source?.cancel()
-            source = nil
-            // 已向客户端发 FIN，等客户端回 FIN 后 terminate()
-        } else {
-            if errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR { return }
-            terminate()
+        // 单个 IP 包不能超过 MTU（1400 - 20 IP - 20 TCP = 1360），留余量取 1200。
+        // 之前一次读 16KB 整包回给手机，带 DF 标志会被内核丢弃，TLS 握手直接失败。
+        let maxChunk = 1200
+        var rounds = 0
+        while rounds < 8 {
+            rounds += 1
+            var buf = [UInt8](repeating: 0, count: maxChunk)
+            let n = buf.withUnsafeMutableBytes { read(fd, $0.baseAddress, maxChunk) }
+            if n > 0 {
+                lastActivity = Date()
+                buf.removeLast(maxChunk - n)
+                send(seq: sndNxt, ack: rcvNxt, flags: TCPFlags.psh | TCPFlags.ack, payload: buf)
+                sndNxt = sndNxt &+ UInt32(n)
+                unacked.append((sndNxt &- UInt32(n), buf, Date()))
+                if unacked.count > 512 { unacked.removeFirst(unacked.count - 512) }
+                if n < maxChunk { return }      // 读空了，等下一次事件
+                continue                         // 还有数据，继续读
+            } else if n == 0 {
+                state = .serverClosed
+                send(seq: sndNxt, ack: rcvNxt, flags: TCPFlags.fin | TCPFlags.ack, payload: [])
+                sndNxt = sndNxt &+ 1
+                source?.cancel()
+                source = nil
+                return
+            } else {
+                if errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR { return }
+                terminate()
+                return
+            }
         }
     }
 
