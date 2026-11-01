@@ -9,9 +9,14 @@
 		/* Begin PBXBuildFile section */
 			FDD86EAD518715C3615B0537 /* ProxyOneApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEBAE2BCC7C0350A4C8348B1 /* ProxyOneApp.swift */; };
 			7AA892D204AA9B58CD1FAEB6 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FD341B521B53260E070DA84 /* ContentView.swift */; };
+			244346BFFC138DABB34CBB79 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10611B02626481CCA6F3C72 /* HomeView.swift */; };
+			26D5B019784E8047B6755CB4 /* NodeListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FB37BD04D9DAB7C5DDD6EDB /* NodeListView.swift */; };
+			185C71AC802133F3A4BE26B0 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB57A07A7BC2202AA0D363AF /* SettingsView.swift */; };
 			4BF338A30856F0C6A2B47890 /* ServerEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 869B722336F844C3EADF46DA /* ServerEditorView.swift */; };
 			BBB8B0DC5093855416918845 /* TunnelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3655BF5E4479C2DA225356E3 /* TunnelManager.swift */; };
 			33603496CDE044994BEF5159 /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62C1CB3E012D34991848BAAB /* DebugView.swift */; };
+			81DA737B9CCFDB64D910F03B /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B4EF4D55A7286ED3D650CDB /* Theme.swift */; };
+			EA2E703C9E9B749E440FC00E /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 078588C2B57E3A2080296D56 /* ShareSheet.swift */; };
 			F5AFFDC4A1E756459FB078F3 /* ProxyConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = F77954F0A46EBDD73832CC46 /* ProxyConfig.swift */; };
 			84316BCF800D8A150D20952A /* MobileConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71927EB3EBF56FCFFF5CA2AA /* MobileConfig.swift */; };
 			510EFA4BA72442E7D7B18078 /* ProxyConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = F77954F0A46EBDD73832CC46 /* ProxyConfig.swift */; };
@@ -53,9 +58,14 @@
 		/* Begin PBXFileReference section */
 			CEBAE2BCC7C0350A4C8348B1 /* ProxyOneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProxyOneApp.swift; sourceTree = "<group>"; };
 			6FD341B521B53260E070DA84 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+			C10611B02626481CCA6F3C72 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+			4FB37BD04D9DAB7C5DDD6EDB /* NodeListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeListView.swift; sourceTree = "<group>"; };
+			AB57A07A7BC2202AA0D363AF /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 			869B722336F844C3EADF46DA /* ServerEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerEditorView.swift; sourceTree = "<group>"; };
 			3655BF5E4479C2DA225356E3 /* TunnelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelManager.swift; sourceTree = "<group>"; };
 			62C1CB3E012D34991848BAAB /* DebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugView.swift; sourceTree = "<group>"; };
+			0B4EF4D55A7286ED3D650CDB /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+			078588C2B57E3A2080296D56 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 			F77954F0A46EBDD73832CC46 /* ProxyConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProxyConfig.swift; sourceTree = "<group>"; };
 			71927EB3EBF56FCFFF5CA2AA /* MobileConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileConfig.swift; sourceTree = "<group>"; };
 			9C9E234FE27B4C414815A999 /* PacketTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketTunnelProvider.swift; sourceTree = "<group>"; };
@@ -107,9 +117,14 @@
 				children = (
 					CEBAE2BCC7C0350A4C8348B1 /* ProxyOneApp.swift */,
 					6FD341B521B53260E070DA84 /* ContentView.swift */,
+					C10611B02626481CCA6F3C72 /* HomeView.swift */,
+					4FB37BD04D9DAB7C5DDD6EDB /* NodeListView.swift */,
+					AB57A07A7BC2202AA0D363AF /* SettingsView.swift */,
 					869B722336F844C3EADF46DA /* ServerEditorView.swift */,
 					3655BF5E4479C2DA225356E3 /* TunnelManager.swift */,
 					62C1CB3E012D34991848BAAB /* DebugView.swift */,
+					0B4EF4D55A7286ED3D650CDB /* Theme.swift */,
+					078588C2B57E3A2080296D56 /* ShareSheet.swift */,
 				);
 				path = App;
 				sourceTree = "<group>";
@@ -274,9 +289,14 @@
 				files = (
 					FDD86EAD518715C3615B0537 /* ProxyOneApp.swift in Sources */,
 					7AA892D204AA9B58CD1FAEB6 /* ContentView.swift in Sources */,
+					244346BFFC138DABB34CBB79 /* HomeView.swift in Sources */,
+					26D5B019784E8047B6755CB4 /* NodeListView.swift in Sources */,
+					185C71AC802133F3A4BE26B0 /* SettingsView.swift in Sources */,
 					4BF338A30856F0C6A2B47890 /* ServerEditorView.swift in Sources */,
 					BBB8B0DC5093855416918845 /* TunnelManager.swift in Sources */,
 					33603496CDE044994BEF5159 /* DebugView.swift in Sources */,
+					81DA737B9CCFDB64D910F03B /* Theme.swift in Sources */,
+					EA2E703C9E9B749E440FC00E /* ShareSheet.swift in Sources */,
 					F5AFFDC4A1E756459FB078F3 /* ProxyConfig.swift in Sources */,
 					84316BCF800D8A150D20952A /* MobileConfig.swift in Sources */,
 				);
