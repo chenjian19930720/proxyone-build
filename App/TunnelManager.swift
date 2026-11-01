@@ -18,6 +18,8 @@ final class TunnelManager: ObservableObject {
     @Published var tunnelLog: String = ""
     @Published var alwaysOn: Bool = SharedStore.alwaysOn
     @Published var networkUp: Bool = true
+    @Published var syncConfig: SyncConfig = SharedStore.syncConfig
+    @Published var syncing = false
 
     private var manager: NETunnelProviderManager?
     private var statusObserver: NSObjectProtocol?
@@ -428,9 +430,81 @@ final class TunnelManager: ObservableObject {
         return buf
     }
 
+    // MARK: - 账户 / 后台同步
+
+    func login(account: String, password: String, backend: String) async -> String? {
+        let acc = account.trimmingCharacters(in: .whitespaces)
+        guard !acc.isEmpty else { return "请输入账号" }
+        let base = backend.trimmingCharacters(in: .whitespaces)
+
+        var cfg = syncConfig
+        cfg.baseURL = base
+        cfg.username = acc
+
+        if base.isEmpty {
+            // 没填后台地址：本地模式，只记住账号
+            cfg.password = ""
+            cfg.token = ""
+            cfg.lastMessage = "本地模式（未连接网页后台）"
+            saveSync(cfg)
+            SharedStore.accountName = acc
+            return nil
+        }
+
+        do {
+            let token = try await SyncService.login(base: base, user: acc, pass: password)
+            cfg.password = password
+            cfg.token = token
+            cfg.lastSync = 0
+            cfg.lastMessage = "登录成功"
+            saveSync(cfg)
+            SharedStore.accountName = acc
+            _ = await syncNow()
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
+    func saveSync(_ c: SyncConfig) {
+        syncConfig = c
+        SharedStore.syncConfig = c
+    }
+
+    /// 从网页后台拉线路；远端线路覆盖，手动添加的保留
+    @discardableResult
+    func syncNow() async -> Bool {
+        guard syncConfig.isConfigured else {
+            syncConfig.lastMessage = "还没配置后台地址或未登录"
+            saveSync(syncConfig)
+            return false
+        }
+        if syncing { return false }
+        syncing = true
+        defer { syncing = false }
+
+        do {
+            let remote = try await SyncService.fetchNodes(base: syncConfig.baseURL, token: syncConfig.token)
+            let incoming = SyncService.toServers(remote)
+            let manual = servers.filter { !$0.isRemote }
+            servers = manual + incoming
+            if selectedID == nil || !servers.contains(where: { $0.id == selectedID }) {
+                selectedID = servers.first?.id
+            }
+            persistServers()
+            syncConfig.lastSync = Date().timeIntervalSince1970
+            syncConfig.lastMessage = "已同步 \(incoming.count) 条云端线路"
+            saveSync(syncConfig)
+            return true
+        } catch {
+            syncConfig.lastMessage = "同步失败：\(error.localizedDescription)"
+            saveSync(syncConfig)
+            return false
+        }
+    }
+
     /// 把 NEVPNErrorDomain 的错误码翻译成人话
-    nonisolated static func explain(_ error: Error) -> String {
-        let ns = error as NSError
+    nonisolated static func explain(_ error: Error) -> String {        let ns = error as NSError
         guard ns.domain == "NEVPNErrorDomain" else { return error.localizedDescription }
         switch ns.code {
         case 1: return "配置无效：检查服务器地址/端口，或扩展未正确签名"
