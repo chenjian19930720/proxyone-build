@@ -10,7 +10,19 @@
       "group": "",
       "remark": "test",
       "created": 1793564737
+    },
+    {
+      "id": "1f8fd50f2d23d180",
+      "username": "newbie01",
+      "pwd": "pbkdf2$17e0a8f54de7bfd0$ee2503c400329bf6b8fc4640419b576a7766bdd2c47a9ce3564befc8ddc7bcb3",
+      "plain": "pass123456",
+      "expires": 1796159587,
+      "enabled": true,
+      "status": "active",
+      "group": "",
+      "remark": "qq 123456",
+      "created": 1793567587
     }
   ],
-  "updated": 1793564737
+  "updated": 1793567587
 }
