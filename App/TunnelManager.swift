@@ -320,22 +320,42 @@ final class TunnelManager: ObservableObject {
     }
 
     /// 走隧道（或直连）请求出口 IP
+    /// 优先用 1.1.1.1 的 IP 字面量：不经过 DNS、不走 TLS，隧道里最快最稳
     func checkExitIP() async -> String {
-        guard var comps = URLComponents(string: "https://api.ipify.org") else { return "?" }
-        comps.queryItems = [URLQueryItem(name: "format", value: "json")]
-        guard let url = comps.url else { return "?" }
+        if let ip = await traceViaCloudflare() { return ip }
+        if let ip = await ipifyIP() { return ip }
+        return "获取失败"
+    }
+
+    private func traceViaCloudflare() async -> String? {
+        guard let url = URL(string: "http://1.1.1.1/cdn-cgi/trace") else { return nil }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 7
+        req.cachePolicy = .reloadIgnoringLocalCacheData
+        do {
+            let (data, _) = try await URLSession.shared.data(for: req)
+            guard let text = String(data: data, encoding: .utf8) else { return nil }
+            for line in text.split(separator: "\n") where line.hasPrefix("ip=") {
+                let ip = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                if !ip.isEmpty && ip != "unknown" { return ip }
+            }
+        } catch {
+            return nil
+        }
+        return nil
+    }
+
+    private func ipifyIP() async -> String? {
+        guard let url = URL(string: "http://api.ipify.org") else { return nil }
         var req = URLRequest(url: url)
         req.timeoutInterval = 8
         req.cachePolicy = .reloadIgnoringLocalCacheData
         do {
             let (data, _) = try await URLSession.shared.data(for: req)
-            if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let ip = obj["ip"] as? String {
-                return ip
-            }
-            return String(data: data, encoding: .utf8) ?? "?"
+            let s = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (s?.isEmpty == false) ? s : nil
         } catch {
-            return "请求失败：\(error.localizedDescription)"
+            return nil
         }
     }
 
