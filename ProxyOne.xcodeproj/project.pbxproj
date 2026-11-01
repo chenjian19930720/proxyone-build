@@ -11,7 +11,7 @@
 			7AA892D204AA9B58CD1FAEB6 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FD341B521B53260E070DA84 /* ContentView.swift */; };
 			244346BFFC138DABB34CBB79 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10611B02626481CCA6F3C72 /* HomeView.swift */; };
 			26D5B019784E8047B6755CB4 /* NodeListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FB37BD04D9DAB7C5DDD6EDB /* NodeListView.swift */; };
-			185C71AC802133F3A4BE26B0 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB57A07A7BC2202AA0D363AF /* SettingsView.swift */; };
+			5BFDBF84938AC97A73468C66 /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C00B34B29B855D67BC720D8 /* AccountView.swift */; };
 			4BF338A30856F0C6A2B47890 /* ServerEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 869B722336F844C3EADF46DA /* ServerEditorView.swift */; };
 			BBB8B0DC5093855416918845 /* TunnelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3655BF5E4479C2DA225356E3 /* TunnelManager.swift */; };
 			33603496CDE044994BEF5159 /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62C1CB3E012D34991848BAAB /* DebugView.swift */; };
@@ -34,6 +34,7 @@
 			B9EFDE1033E3F7E883EFBC32 /* UDPRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8CAC66D17FD27500072F7AF /* UDPRelay.swift */; };
 			ABD01680A3EA1EFD80163648 /* DNSRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F116581780471BAF82CE77F /* DNSRelay.swift */; };
 			0914D3F140A47BD4EFEE91FB /* ProxyOneTunnel.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = CFEE55A02984C083C52C8EFC /* ProxyOneTunnel.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+			6DCB8348A5BB45F246B65250 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D35EC48B6F8BFCC8DF5C8E6B /* Assets.xcassets */; };
 		/* End PBXBuildFile section */
 
 		/* Begin PBXContainerItemProxy section */
@@ -65,7 +66,7 @@
 			6FD341B521B53260E070DA84 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 			C10611B02626481CCA6F3C72 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 			4FB37BD04D9DAB7C5DDD6EDB /* NodeListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeListView.swift; sourceTree = "<group>"; };
-			AB57A07A7BC2202AA0D363AF /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+			6C00B34B29B855D67BC720D8 /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
 			869B722336F844C3EADF46DA /* ServerEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerEditorView.swift; sourceTree = "<group>"; };
 			3655BF5E4479C2DA225356E3 /* TunnelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelManager.swift; sourceTree = "<group>"; };
 			62C1CB3E012D34991848BAAB /* DebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugView.swift; sourceTree = "<group>"; };
@@ -89,6 +90,7 @@
 			97353D4228C002593DF8E16B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 			C797AF2D7A64D1A05CAE8A88 /* ProxyOneTunnel.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ProxyOneTunnel.entitlements; sourceTree = "<group>"; };
 			84337AD8D27FCD69AF2C4FC2 /* ProxyOne.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ProxyOne.app; sourceTree = BUILT_PRODUCTS_DIR; };
+			D35EC48B6F8BFCC8DF5C8E6B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 			CFEE55A02984C083C52C8EFC /* ProxyOneTunnel.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ProxyOneTunnel.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		/* End PBXFileReference section */
 
@@ -128,7 +130,7 @@
 					6FD341B521B53260E070DA84 /* ContentView.swift */,
 					C10611B02626481CCA6F3C72 /* HomeView.swift */,
 					4FB37BD04D9DAB7C5DDD6EDB /* NodeListView.swift */,
-					AB57A07A7BC2202AA0D363AF /* SettingsView.swift */,
+					6C00B34B29B855D67BC720D8 /* AccountView.swift */,
 					869B722336F844C3EADF46DA /* ServerEditorView.swift */,
 					3655BF5E4479C2DA225356E3 /* TunnelManager.swift */,
 					62C1CB3E012D34991848BAAB /* DebugView.swift */,
@@ -137,6 +139,7 @@
 					78F5AD606E4F9AC2A3308BF5 /* SplashView.swift */,
 					D5C869EC0300F466B21FF6A7 /* LoginView.swift */,
 					247972FA2A34C5B6458B3789 /* SyncView.swift */,
+					D35EC48B6F8BFCC8DF5C8E6B /* Assets.xcassets */,
 				);
 				path = App;
 				sourceTree = "<group>";
@@ -283,6 +286,7 @@
 				isa = PBXResourcesBuildPhase;
 				buildActionMask = 2147483647;
 				files = (
+					6DCB8348A5BB45F246B65250 /* Assets.xcassets in Resources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 			};
@@ -304,7 +308,7 @@
 					7AA892D204AA9B58CD1FAEB6 /* ContentView.swift in Sources */,
 					244346BFFC138DABB34CBB79 /* HomeView.swift in Sources */,
 					26D5B019784E8047B6755CB4 /* NodeListView.swift in Sources */,
-					185C71AC802133F3A4BE26B0 /* SettingsView.swift in Sources */,
+					5BFDBF84938AC97A73468C66 /* AccountView.swift in Sources */,
 					4BF338A30856F0C6A2B47890 /* ServerEditorView.swift in Sources */,
 					BBB8B0DC5093855416918845 /* TunnelManager.swift in Sources */,
 					33603496CDE044994BEF5159 /* DebugView.swift in Sources */,
@@ -452,6 +456,7 @@
 			82000B87E0EC13AD7FD6DA43 /* Debug */ = {
 				isa = XCBuildConfiguration;
 				buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Resources/ProxyOne.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -473,6 +478,7 @@
 			16ACE556BD5CA3C51FD3F043 /* Release */ = {
 				isa = XCBuildConfiguration;
 				buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Resources/ProxyOne.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
