@@ -22,7 +22,7 @@ def uid(key: str) -> str:
 
 # ---------------------------------------------------------------- 文件清单
 APP_FILES = ["ProxyOneApp.swift", "ContentView.swift", "HomeView.swift", "NodeListView.swift",
-             "AccountView.swift", "TunnelManager.swift",
+             "AccountView.swift", "ServerEditorView.swift", "TunnelManager.swift",
              "DebugView.swift", "Theme.swift", "ShareSheet.swift",
              "SplashView.swift", "LoginView.swift", "SyncView.swift", "AppConfig.swift",
              "RegisterView.swift"]
