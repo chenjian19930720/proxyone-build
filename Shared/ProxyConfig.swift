@@ -12,6 +12,7 @@ struct ProxyServer: Codable, Identifiable, Hashable {
     var remark: String
     var group: String
     var latency: Int?
+    var isRemote: Bool
 
     init(id: UUID = UUID(),
          name: String = "新线路",
@@ -21,7 +22,8 @@ struct ProxyServer: Codable, Identifiable, Hashable {
          password: String = "",
          remark: String = "",
          group: String = "",
-         latency: Int? = nil) {
+         latency: Int? = nil,
+         isRemote: Bool = false) {
         self.id = id
         self.name = name
         self.host = host
@@ -31,10 +33,11 @@ struct ProxyServer: Codable, Identifiable, Hashable {
         self.remark = remark
         self.group = group
         self.latency = latency
+        self.isRemote = isRemote
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, host, port, username, password, remark, group, latency
+        case id, name, host, port, username, password, remark, group, latency, isRemote
     }
 
     init(from decoder: Decoder) throws {
@@ -48,6 +51,7 @@ struct ProxyServer: Codable, Identifiable, Hashable {
         remark = try c.decodeIfPresent(String.self, forKey: .remark) ?? ""
         group = try c.decodeIfPresent(String.self, forKey: .group) ?? ""
         latency = try c.decodeIfPresent(Int.self, forKey: .latency)
+        isRemote = try c.decodeIfPresent(Bool.self, forKey: .isRemote) ?? false
     }
 
     var isValid: Bool {
@@ -106,6 +110,32 @@ enum SharedStore {
     static var alwaysOn: Bool {
         get { defaults.bool(forKey: "always.on.v1") }
         set { defaults.set(newValue, forKey: "always.on.v1") }
+    }
+
+    // MARK: 账户 / 后台同步
+
+    static var isLoggedIn: Bool {
+        get { defaults.bool(forKey: "logged.in.v1") }
+        set { defaults.set(newValue, forKey: "logged.in.v1") }
+    }
+
+    static var accountName: String {
+        get { defaults.string(forKey: "account.name.v1") ?? "" }
+        set { defaults.set(newValue, forKey: "account.name.v1") }
+    }
+
+    static var syncConfig: SyncConfig {
+        get {
+            guard let data = defaults.data(forKey: "sync.config.v1"),
+                  let c = try? JSONDecoder().decode(SyncConfig.self, from: data)
+            else { return SyncConfig() }
+            return c
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                defaults.set(data, forKey: "sync.config.v1")
+            }
+        }
     }
 
     static func selectedServer() -> ProxyServer? {
