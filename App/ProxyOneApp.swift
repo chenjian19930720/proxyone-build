@@ -8,7 +8,12 @@ struct ProxyOneApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(tunnel)
-                .task { await tunnel.load() }
+                .task {
+                    await tunnel.load()
+                    if SharedStore.autoConnect, !tunnel.isOn, tunnel.currentServer != nil {
+                        await tunnel.start()
+                    }
+                }
         }
     }
 }
