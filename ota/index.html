@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>待续IP系统 · 安装</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,"PingFang SC",sans-serif;background:#08090f;color:#e8ecf5;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+       background-image:radial-gradient(circle at 20% 0%,rgba(76,144,255,.22),transparent 45%),
+                        radial-gradient(circle at 80% 10%,rgba(139,95,255,.16),transparent 42%)}
+  .card{width:100%;max-width:360px;text-align:center}
+  .icon{width:96px;height:96px;border-radius:24px;margin:0 auto 18px;
+         box-shadow:0 12px 40px rgba(76,144,255,.35)}
+  h1{font-size:21px;font-weight:700;margin-bottom:6px}
+  .ver{font-size:12px;color:#5d6a85;margin-bottom:26px}
+  .btn{display:block;padding:16px;border-radius:15px;font-size:16px;font-weight:600;
+        color:#fff;text-decoration:none;background:linear-gradient(135deg,#4c90ff,#8b5fff);
+        box-shadow:0 8px 26px rgba(76,144,255,.35)}
+  .btn:active{transform:scale(.98);opacity:.9}
+  .tip{margin-top:22px;font-size:12px;color:#5d6a85;line-height:1.9;text-align:left;
+        background:#11151f;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px 16px}
+  .tip b{color:#8fa3c7}
+</style>
+</head>
+<body>
+  <div class="card">
+    <img class="icon" src="icon.png" alt="">
+    <h1>待续IP系统</h1>
+    <div class="ver">版本 1.0 (build 1) · 0.8 MB</div>
+    <a class="btn" href="itms-services://?action=download-manifest&url=https://ip.example.com/ota/manifest.plist">安 装</a>
+    <div class="tip">
+      <b>第一次安装需要：</b><br>
+      1. 用 <b>Safari</b> 打开本页（微信/QQ 内置浏览器装不了）<br>
+      2. 点「安装」→ 弹窗点「安装」<br>
+      3. 装完若提示"未受信任的企业级开发者"，去<br>
+         <b>设置 → 通用 → VPN与设备管理</b> 点信任<br>
+      <b>包名：</b>com.example.proxyone
+    </div>
+  </div>
+</body>
+</html>
