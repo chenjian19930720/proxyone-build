@@ -1,0 +1,11 @@
+*.xcodeproj/project.xcworkspace
+*.xcodeproj/xcuserdata
+xcuserdata/
+DerivedData/
+build/
+Payload/
+.DS_Store
+*.ipa
+_artifact.zip
+.gh_token
+__pycache__/
