@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>待续IP系统 · 商业后台</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#08090f;
+       color:#e8ecf5;min-height:100vh;
+       background-image:radial-gradient(circle at 15% 0%,rgba(76,144,255,.16),transparent 45%),
+                        radial-gradient(circle at 85% 8%,rgba(139,95,255,.13),transparent 42%)}
+  .wrap{max-width:1120px;margin:0 auto;padding:30px 20px 80px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+        background:linear-gradient(135deg,#4c90ff,#8b5fff);font-size:19px}
+  h1{font-size:19px;font-weight:700}
+  .sub{font-size:11.5px;color:#5d6a85;margin-left:52px;margin-top:4px;margin-bottom:26px}
+  .card{background:#11151f;border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:20px}
+  .login{max-width:380px;margin:11vh auto 0}
+  label{display:block;font-size:11.5px;color:#7c88a3;margin:13px 0 5px}
+  input,select{width:100%;padding:11px 13px;border-radius:11px;border:1px solid rgba(255,255,255,.09);
+        background:#0b0e16;color:#e8ecf5;font-size:13.5px;outline:none}
+  input:focus{border-color:#4c90ff}
+  button{cursor:pointer;border:0;border-radius:11px;font-size:13.5px;font-weight:600;
+         padding:11px 17px;color:#fff;background:linear-gradient(135deg,#4c90ff,#8b5fff)}
+  button.ghost{background:rgba(255,255,255,.07);color:#c8d2e6}
+  button.danger{background:rgba(255,80,80,.14);color:#ff6b6b}
+  button.sm{padding:6px 11px;font-size:12px;border-radius:9px}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row>*{flex:1;min-width:120px}
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tab{padding:9px 18px;border-radius:11px;font-size:13px;cursor:pointer;
+       background:rgba(255,255,255,.05);color:#8b97b0}
+  .tab.on{background:rgba(76,144,255,.16);color:#7fb0ff}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;color:#5d6a85;font-weight:600;font-size:10.5px;letter-spacing:.5px;
+     text-transform:uppercase;padding:9px 7px;border-bottom:1px solid rgba(255,255,255,.07)}
+  td{padding:11px 7px;border-bottom:1px solid rgba(255,255,255,.045)}
+  td.mono{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#8f9cb8}
+  .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;
+       background:rgba(76,144,255,.15);color:#6fa8ff}
+  .ok{color:#34d399}.warn{color:#ffb020}.bad{color:#ff6b6b}.off{color:#5d6a85}
+  .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:12px;flex-wrap:wrap}
+  .muted{color:#5d6a85;font-size:11.5px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1a2130;
+         border:1px solid rgba(255,255,255,.1);padding:11px 18px;border-radius:12px;font-size:13px;
+         opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1}
+  .empty{text-align:center;color:#4a5568;padding:38px 0;font-size:12.5px}
+  .kv{display:flex;gap:8px;font-size:11px;color:#5d6a85;margin-top:10px;flex-wrap:wrap}
+  .kv span{background:rgba(255,255,255,.04);padding:4px 9px;border-radius:7px}
+</style>
+</head>
+<body><div class="wrap"><div id="app"></div></div>
+<div class="toast" id="toast"></div>
+<script>
+const $ = s => document.querySelector(s);
+let token = localStorage.getItem('token') || '';
+let tab = 'nodes';
+let nodes = [], users = [];
+
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');
+  clearTimeout(window._t);window._t=setTimeout(()=>t.classList.remove('show'),2000);}
+
+async function api(path, body, method){
+  const opt={method:method||(body?'POST':'GET'),headers:{'Content-Type':'application/json'}};
+  if(token) opt.headers['Authorization']='Bearer '+token;
+  if(body) opt.body=JSON.stringify(body);
+  const r=await fetch(path,opt);
+  if(r.status===401){token='';localStorage.removeItem('token');render();throw new Error('登录已失效');}
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
+  return d;
+}
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtDate=ts=>{ if(!ts) return '永久'; const d=new Date(ts*1000);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const daysLeft=ts=>{ if(!ts) return null; return Math.ceil((ts*1000-Date.now())/86400000); };
+
+function render(){
+  $('#app').innerHTML = token ? mainPage() : loginPage();
+  if(token){ loadAll(); }
+}
+
+function loginPage(){
+  return `<div class="login">
+    <div class="brand"><div class="logo">⚡</div><h1>待续IP系统</h1></div>
+    <div class="sub">商业版管理后台</div>
+    <div class="card">
+      <label>管理员账号</label><input id="u" placeholder="admin">
+      <label>密码</label><input id="p" type="password" placeholder="••••••"
+        onkeydown="if(event.key==='Enter')doLogin()">
+      <div style="height:16px"></div>
+      <button style="width:100%" onclick="doLogin()">登 录</button>
+    </div></div>`;
+}
+
+function mainPage(){
+  return `
+  <div class="brand"><div class="logo">⚡</div><h1>待续IP系统</h1></div>
+  <div class="sub">商业版管理后台 · 用户必须由这里开通</div>
+  <div class="tabs">
+    <div class="tab ${tab==='nodes'?'on':''}" onclick="switchTab('nodes')">线路管理</div>
+    <div class="tab ${tab==='users'?'on':''}" onclick="switchTab('users')">用户管理</div>
+    <div style="flex:1"></div>
+    <div class="tab" onclick="logout()">退出</div>
+  </div>
+  <div id="pane"></div>`;
+}
+
+function switchTab(t){ tab=t; render(); }
+
+async function loadAll(){
+  try{
+    if(tab==='nodes'){
+      const d = await api('/api/nodes'); nodes = d.nodes||[];
+      $('#pane').innerHTML = nodesPane();
+    }else{
+      const d = await api('/api/users'); users = d.users||[];
+      $('#pane').innerHTML = usersPane();
+    }
+  }catch(e){ toast(e.message); }
+}
+
+function nodesPane(){
+  return `
+  <div class="card" style="margin-bottom:16px">
+    <div class="head"><b style="font-size:13.5px">添加线路</b><span class="muted">SOCKS5</span></div>
+    <div class="row">
+      <input id="n_name" placeholder="名称">
+      <input id="n_host" placeholder="服务器 IP / 域名">
+      <input id="n_port" placeholder="端口" value="1080">
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input id="n_user" placeholder="用户名（可空）">
+      <input id="n_pass" placeholder="密码（可空）">
+      <input id="n_group" placeholder="分组，如 香港">
+    </div>
+    <div style="height:14px"></div>
+    <div class="row">
+      <button onclick="addNode()">添加线路</button>
+      <button class="ghost" onclick="bulkAdd()">批量导入</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="head"><b style="font-size:13.5px">线路列表</b><span class="muted">${nodes.length} 条</span></div>
+    ${nodes.length? nodeTable():'<div class="empty">还没有线路</div>'}
+  </div>`;
+}
+
+function nodeTable(){
+  return `<table><thead><tr><th>名称</th><th>服务器</th><th>端口</th><th>分组</th><th>状态</th><th></th></tr></thead><tbody>`
+  + nodes.map(n=>`<tr>
+      <td>${esc(n.name)}</td><td class="mono">${esc(n.host)}</td><td class="mono">${n.port}</td>
+      <td>${n.group?'<span class="tag">'+esc(n.group)+'</span>':'<span class="muted">—</span>'}</td>
+      <td class="${n.enabled===false?'off':'ok'}">${n.enabled===false?'停用':'启用'}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="ghost sm" onclick="toggleNode('${n.id}')">${n.enabled===false?'启用':'停用'}</button>
+        <button class="danger sm" onclick="delNode('${n.id}')">删除</button>
+      </td></tr>`).join('')+`</tbody></table>`;
+}
+
+function usersPane(){
+  const pending = users.filter(u=>(u.status||'active')==='pending').length;
+  return `
+  <div class="card" style="margin-bottom:16px">
+    <div class="head"><b style="font-size:13.5px">开通账号</b>
+      <span class="muted">App 提交的注册申请也会出现在下面，点「开通」才生效</span></div>
+    <div class="row">
+      <input id="u_name" placeholder="账号，如 vip001">
+      <input id="u_pass" placeholder="密码">
+      <input id="u_days" placeholder="有效天数，留空=永久" value="30">
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input id="u_group" placeholder="线路分组（留空=全部线路）">
+      <input id="u_remark" placeholder="备注 / 联系方式">
+    </div>
+    <div style="height:14px"></div>
+    <button onclick="addUser()">直接开通账号</button>
+    <div class="kv"><span>共 ${users.length}</span>
+      <span class="warn">待审核 ${pending}</span>
+      <span>正常 ${users.filter(u=>(u.status||'active')==='active'&&u.enabled).length}</span>
+      <span>已到期 ${users.filter(u=>u.expires&&u.expires<Date.now()/1000).length}</span></div>
+  </div>
+  <div class="card">
+    <div class="head"><b style="font-size:13.5px">账号列表</b>
+      <button class="ghost sm" onclick="loadAll()">刷新</button></div>
+    ${users.length? userTable():'<div class="empty">还没有账号，上面开一个</div>'}
+  </div>`;
+}
+
+function userTable(){
+  return `<table><thead><tr><th>账号</th><th>密码</th><th>联系方式</th><th>状态</th><th>到期</th><th>剩余</th><th></th></tr></thead><tbody>`
+  + users.map(u=>{
+      const st=u.status||'active';
+      const expired=u.expires && u.expires<Date.now()/1000;
+      const left=daysLeft(u.expires);
+      let tag='<span class="ok">正常</span>';
+      if(st==='pending') tag='<span class="warn">待审核</span>';
+      else if(st==='rejected') tag='<span class="bad">已拒绝</span>';
+      else if(!u.enabled) tag='<span class="off">停用</span>';
+      else if(expired) tag='<span class="bad">已到期</span>';
+      const rowStyle = st==='pending' ? ' style="background:rgba(255,176,32,.055)"' : '';
+      return `<tr${rowStyle}>
+        <td><b>${esc(u.username)}</b></td>
+        <td class="mono">${esc(u.plain||'••••')}</td>
+        <td class="muted">${esc(u.remark||'')}</td>
+        <td>${tag}</td>
+        <td class="mono">${fmtDate(u.expires)}</td>
+        <td class="${expired?'bad':(left!==null&&left<7?'warn':'ok')}">${left===null?'—':(expired?'已过期':left+' 天')}</td>
+        <td style="text-align:right;white-space:nowrap">
+          ${st==='pending'
+            ? `<button class="sm" onclick="approve('${u.id}')">开通</button>`
+            : `<button class="ghost sm" onclick="extend('${u.id}')">续期</button>
+               <button class="ghost sm" onclick="toggleUser('${u.id}')">${u.enabled?'停用':'启用'}</button>`}
+          <button class="danger sm" onclick="delUser('${u.id}')">删除</button>
+        </td></tr>`;}).join('')+`</tbody></table>`;
+}
+
+async function approve(id){
+  const d = prompt('开通天数（填 0 = 永久）','30');
+  if(d===null) return;
+  try{ await api('/api/users/approve',{id, days: parseInt(d||'0')}); toast('已开通'); loadAll(); }
+  catch(e){ toast(e.message); }
+}
+
+async function doLogin(){
+  const username=$('#u').value.trim(), password=$('#p').value;
+  try{ const d=await api('/api/login',{username,password});
+    token=d.token; localStorage.setItem('token',token); render(); toast('登录成功');
+  }catch(e){ toast(e.message); }
+}
+function logout(){ token=''; localStorage.removeItem('token'); render(); }
+
+async function addNode(){
+  const n={name:$('#n_name').value.trim(),host:$('#n_host').value.trim(),
+    port:parseInt($('#n_port').value||'0'),username:$('#n_user').value.trim(),
+    password:$('#n_pass').value,group:$('#n_group').value.trim()||'默认'};
+  if(!n.name||!n.host||!n.port) return toast('名称/地址/端口必填');
+  try{ await api('/api/nodes',{node:n}); toast('已添加');
+    ['n_name','n_host','n_user','n_pass','n_group'].forEach(k=>$('#'+k).value=''); loadAll();
+  }catch(e){ toast(e.message); }
+}
+async function bulkAdd(){
+  const text=prompt('一行一条：\n名称|地址|端口|用户名|密码\n或 地址:端口');
+  if(!text) return;
+  try{ const d=await api('/api/nodes/bulk',{text}); toast('导入 '+d.added+' 条'); loadAll(); }
+  catch(e){ toast(e.message); }
+}
+async function toggleNode(id){
+  const n=nodes.find(x=>x.id===id); if(!n) return;
+  try{ await api('/api/nodes',{node:{...n,enabled:n.enabled===false}}); loadAll(); }catch(e){ toast(e.message); }
+}
+async function delNode(id){
+  if(!confirm('删除这条线路？')) return;
+  try{ await api('/api/nodes/delete',{id}); toast('已删除'); loadAll(); }catch(e){ toast(e.message); }
+}
+
+async function addUser(){
+  const username=$('#u_name').value.trim(), password=$('#u_pass').value;
+  const days=$('#u_days').value.trim();
+  if(!username||!password) return toast('账号和密码必填');
+  const body={user:{username,password,days:days?parseInt(days):0,
+    group:$('#u_group').value.trim(),remark:$('#u_remark').value.trim()}};
+  try{ await api('/api/users',body); toast('已开通');
+    ['u_name','u_pass','u_group','u_remark'].forEach(k=>$('#'+k).value=''); loadAll();
+  }catch(e){ toast(e.message); }
+}
+async function toggleUser(id){
+  const u=users.find(x=>x.id===id); if(!u) return;
+  try{ await api('/api/users',{user:{id:u.id,enabled:!u.enabled}}); loadAll(); }catch(e){ toast(e.message); }
+}
+async function extend(id){
+  const u=users.find(x=>x.id===id); if(!u) return;
+  const d=prompt('续期天数（从现在起算）','30');
+  if(!d) return;
+  try{ await api('/api/users',{user:{id:u.id,extend_days:parseInt(d)}}); toast('已续期'); loadAll(); }
+  catch(e){ toast(e.message); }
+}
+async function delUser(id){
+  if(!confirm('删除该账号？删掉后 App 立刻登不进来。')) return;
+  try{ await api('/api/users/delete',{id}); toast('已删除'); loadAll(); }catch(e){ toast(e.message); }
+}
+
+render();
+</script>
+</body></html>
