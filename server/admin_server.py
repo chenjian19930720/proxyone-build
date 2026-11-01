@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-待续IP系统 · 商业版后台（零依赖，单文件）
+待续IP系统 · 商业版后台 v3（SQLite，零第三方依赖）
 
-功能：
-  · 管理员登录后管理「线路」和「用户」
-  · 用户必须由管理员开通（账号 / 密码 / 有效期 / 启用状态）
-  · App 端只能用已开通的账号登录，登录后自动同步线路，不能自己加线路
+· 服务端：单文件 Python，只用标准库
+· 网页：HTML 内嵌在本文件里，不需要单独放静态页面
+· 存储：SQLite 单文件数据库 daixu.db（支持事务、并发、索引）
+· 旧版 users.json / nodes.json 会在首次启动时自动迁移
 
 启动：
     python admin_server.py --port 8787 --user admin --pass admin888
-浏览器打开 http://本机IP:8787
 """
 import argparse
 import base64
@@ -20,58 +19,196 @@ import json
 import os
 import secrets
 import socket
+import sqlite3
 import threading
 import time
+from contextlib import closing
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-NODES_FILE = os.path.join(BASE, "nodes.json")
-USERS_FILE = os.path.join(BASE, "users.json")
+DB_FILE = os.path.join(BASE, "daixu.db")
+LEGACY_USERS = os.path.join(BASE, "users.json")
+LEGACY_NODES = os.path.join(BASE, "nodes.json")
 SECRET_FILE = os.path.join(BASE, ".secret")
-LOCK = threading.Lock()
+WRITE_LOCK = threading.Lock()
 
-VERSION = "2.0"
-
-
-# ------------------------------------------------------------------ 存储
-def _load(path, key):
-    if not os.path.isfile(path):
-        return {key: [], "updated": 0}
-    try:
-        with open(path, encoding="utf-8") as fh:
-            d = json.load(fh)
-        d.setdefault(key, [])
-        d.setdefault("updated", 0)
-        return d
-    except Exception:
-        return {key: [], "updated": 0}
+VERSION = "3.0"
 
 
-def _save(path, d):
-    d["updated"] = int(time.time())
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(d, fh, ensure_ascii=False, indent=2)
-    os.replace(tmp, path)
+# ------------------------------------------------------------------ 数据库
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS users (
+    id       TEXT PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    pwd      TEXT NOT NULL,
+    plain    TEXT DEFAULT '',
+    expires  INTEGER DEFAULT 0,
+    enabled  INTEGER DEFAULT 1,
+    status   TEXT DEFAULT 'active',
+    grp      TEXT DEFAULT '',
+    remark   TEXT DEFAULT '',
+    created  INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS nodes (
+    id       TEXT PRIMARY KEY,
+    name     TEXT DEFAULT '',
+    host     TEXT NOT NULL,
+    port     INTEGER NOT NULL,
+    username TEXT DEFAULT '',
+    password TEXT DEFAULT '',
+    grp      TEXT DEFAULT '默认',
+    enabled  INTEGER DEFAULT 1,
+    updated  INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+CREATE INDEX IF NOT EXISTS idx_nodes_grp ON nodes(grp);
+"""
 
 
-def load_nodes():
-    return _load(NODES_FILE, "nodes")
+def db():
+    conn = sqlite3.connect(DB_FILE, timeout=15)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    return conn
 
 
-def save_nodes(d):
-    _save(NODES_FILE, d)
+def init_db():
+    with closing(db()) as c:
+        c.executescript(SCHEMA)
+        c.commit()
+    migrate_legacy()
 
 
-def load_users():
-    return _load(USERS_FILE, "users")
+def migrate_legacy():
+    """把老版本 json 数据导入 sqlite（只导一次）"""
+    if os.path.isfile(LEGACY_USERS):
+        try:
+            data = json.load(open(LEGACY_USERS, encoding="utf-8")).get("users", [])
+            with closing(db()) as c:
+                for u in data:
+                    c.execute(
+                        "INSERT OR IGNORE INTO users(id,username,pwd,plain,expires,enabled,status,grp,remark,created)"
+                        " VALUES(?,?,?,?,?,?,?,?,?,?)",
+                        (u.get("id") or secrets.token_hex(8), u["username"], u.get("pwd", ""),
+                         u.get("plain", ""), int(u.get("expires", 0)),
+                         1 if u.get("enabled", True) else 0,
+                         u.get("status", "active"), u.get("group", ""),
+                         u.get("remark", ""), int(u.get("created", 0))))
+                c.commit()
+            os.rename(LEGACY_USERS, LEGACY_USERS + ".migrated")
+            print("[migrate] users.json -> daixu.db 完成")
+        except Exception as e:
+            print("[migrate] users 迁移失败:", e)
+
+    if os.path.isfile(LEGACY_NODES):
+        try:
+            data = json.load(open(LEGACY_NODES, encoding="utf-8")).get("nodes", [])
+            with closing(db()) as c:
+                for n in data:
+                    c.execute(
+                        "INSERT OR IGNORE INTO nodes(id,name,host,port,username,password,grp,enabled,updated)"
+                        " VALUES(?,?,?,?,?,?,?,?,?)",
+                        (n.get("id") or secrets.token_hex(8), n.get("name", ""), n["host"],
+                         int(n["port"]), n.get("username", ""), n.get("password", ""),
+                         n.get("group", "默认"), 1 if n.get("enabled", True) else 0,
+                         int(n.get("updated", 0))))
+                c.commit()
+            os.rename(LEGACY_NODES, LEGACY_NODES + ".migrated")
+            print("[migrate] nodes.json -> daixu.db 完成")
+        except Exception as e:
+            print("[migrate] nodes 迁移失败:", e)
 
 
-def save_users(d):
-    _save(USERS_FILE, d)
+def row2dict(r):
+    if r is None:
+        return None
+    d = dict(r)
+    if "enabled" in d:
+        d["enabled"] = bool(d["enabled"])
+    if "grp" in d:
+        d["group"] = d["grp"]
+    return d
 
 
+# ---- users
+def list_users():
+    with closing(db()) as c:
+        return [row2dict(r) for r in c.execute("SELECT * FROM users ORDER BY created DESC")]
+
+
+def get_user_by_name(name):
+    with closing(db()) as c:
+        return row2dict(c.execute("SELECT * FROM users WHERE username=?", (name,)).fetchone())
+
+
+def get_user_by_id(uid):
+    with closing(db()) as c:
+        return row2dict(c.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone())
+
+
+def insert_user(u):
+    with WRITE_LOCK, closing(db()) as c:
+        c.execute("INSERT INTO users(id,username,pwd,plain,expires,enabled,status,grp,remark,created)"
+                  " VALUES(?,?,?,?,?,?,?,?,?,?)",
+                  (u["id"], u["username"], u["pwd"], u.get("plain", ""), u.get("expires", 0),
+                   1 if u.get("enabled", True) else 0, u.get("status", "active"),
+                   u.get("group", ""), u.get("remark", ""), u.get("created", int(time.time()))))
+        c.commit()
+
+
+def update_user_fields(uid, fields):
+    if not fields:
+        return
+    keys = ", ".join("%s=?" % k for k in fields)
+    vals = list(fields.values()) + [uid]
+    with WRITE_LOCK, closing(db()) as c:
+        c.execute("UPDATE users SET %s WHERE id=?" % keys, vals)
+        c.commit()
+
+
+def delete_user(uid):
+    with WRITE_LOCK, closing(db()) as c:
+        c.execute("DELETE FROM users WHERE id=?", (uid,))
+        c.commit()
+
+
+# ---- nodes
+def list_nodes(group=None, only_enabled=False):
+    sql = "SELECT * FROM nodes WHERE 1=1"
+    args = []
+    if group:
+        sql += " AND grp=?"
+        args.append(group)
+    if only_enabled:
+        sql += " AND enabled=1"
+    sql += " ORDER BY updated DESC"
+    with closing(db()) as c:
+        return [row2dict(r) for r in c.execute(sql, args)]
+
+
+def upsert_node(n):
+    with WRITE_LOCK, closing(db()) as c:
+        c.execute(
+            "INSERT INTO nodes(id,name,host,port,username,password,grp,enabled,updated)"
+            " VALUES(?,?,?,?,?,?,?,?,?)"
+            " ON CONFLICT(id) DO UPDATE SET name=excluded.name,host=excluded.host,port=excluded.port,"
+            " username=excluded.username,password=excluded.password,grp=excluded.grp,"
+            " enabled=excluded.enabled,updated=excluded.updated",
+            (n["id"], n.get("name", ""), n["host"], int(n["port"]), n.get("username", ""),
+             n.get("password", ""), n.get("group", "默认"), 1 if n.get("enabled", True) else 0,
+             int(time.time())))
+        c.commit()
+
+
+def delete_node(nid):
+    with WRITE_LOCK, closing(db()) as c:
+        c.execute("DELETE FROM nodes WHERE id=?", (nid,))
+        c.commit()
+
+
+# ------------------------------------------------------------------ 密码 / token
 def secret_key():
     if os.path.isfile(SECRET_FILE):
         with open(SECRET_FILE, "rb") as fh:
@@ -85,7 +222,6 @@ def secret_key():
 SECRET = secret_key()
 
 
-# ------------------------------------------------------------------ 密码 / token
 def hash_password(pwd, salt=None):
     salt = salt or secrets.token_hex(8)
     h = hashlib.pbkdf2_hmac("sha256", pwd.encode(), salt.encode(), 60000)
@@ -115,13 +251,12 @@ def admin_token(user, pwd):
 
 
 def user_token(u):
-    payload = b64(u["username"])
-    sig = hmac.new(SECRET, ("user:%s:%s" % (u["username"], u["pwd"])).encode(), hashlib.sha256).hexdigest()[:40]
-    return "us.%s.%s" % (payload, sig)
+    sig = hmac.new(SECRET, ("user:%s:%s" % (u["username"], u["pwd"])).encode(),
+                   hashlib.sha256).hexdigest()[:40]
+    return "us.%s.%s" % (b64(u["username"]), sig)
 
 
 def parse_token(tok, admin_user, admin_pwd):
-    """返回 ("admin", None) / ("user", user_dict) / (None, None)"""
     if not tok:
         return None, None
     parts = tok.split(".")
@@ -134,9 +269,7 @@ def parse_token(tok, admin_user, admin_pwd):
             username = unb64(parts[1])
         except Exception:
             return None, None
-        with LOCK:
-            d = load_users()
-        u = next((x for x in d["users"] if x["username"] == username), None)
+        u = get_user_by_name(username)
         if not u:
             return None, None
         expect = hmac.new(SECRET, ("user:%s:%s" % (u["username"], u["pwd"])).encode(),
@@ -161,7 +294,6 @@ def user_active(u):
     return True, ""
 
 
-# 注册频率限制（同一 IP 5 分钟最多 5 次）
 REG_RATE = {}
 
 
@@ -177,298 +309,10 @@ def rate_ok(ip):
 
 
 # ------------------------------------------------------------------ 页面
-PAGE = r"""<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>待续IP系统 · 商业后台</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#08090f;
-       color:#e8ecf5;min-height:100vh;
-       background-image:radial-gradient(circle at 15% 0%,rgba(76,144,255,.16),transparent 45%),
-                        radial-gradient(circle at 85% 8%,rgba(139,95,255,.13),transparent 42%)}
-  .wrap{max-width:1120px;margin:0 auto;padding:30px 20px 80px}
-  .brand{display:flex;align-items:center;gap:12px}
-  .logo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
-        background:linear-gradient(135deg,#4c90ff,#8b5fff);font-size:19px}
-  h1{font-size:19px;font-weight:700}
-  .sub{font-size:11.5px;color:#5d6a85;margin-left:52px;margin-top:4px;margin-bottom:26px}
-  .card{background:#11151f;border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:20px}
-  .login{max-width:380px;margin:11vh auto 0}
-  label{display:block;font-size:11.5px;color:#7c88a3;margin:13px 0 5px}
-  input,select{width:100%;padding:11px 13px;border-radius:11px;border:1px solid rgba(255,255,255,.09);
-        background:#0b0e16;color:#e8ecf5;font-size:13.5px;outline:none}
-  input:focus{border-color:#4c90ff}
-  button{cursor:pointer;border:0;border-radius:11px;font-size:13.5px;font-weight:600;
-         padding:11px 17px;color:#fff;background:linear-gradient(135deg,#4c90ff,#8b5fff)}
-  button.ghost{background:rgba(255,255,255,.07);color:#c8d2e6}
-  button.danger{background:rgba(255,80,80,.14);color:#ff6b6b}
-  button.sm{padding:6px 11px;font-size:12px;border-radius:9px}
-  button:disabled{opacity:.45;cursor:not-allowed}
-  .row{display:flex;gap:10px;flex-wrap:wrap}
-  .row>*{flex:1;min-width:120px}
-  .tabs{display:flex;gap:8px;margin-bottom:16px}
-  .tab{padding:9px 18px;border-radius:11px;font-size:13px;cursor:pointer;
-       background:rgba(255,255,255,.05);color:#8b97b0}
-  .tab.on{background:rgba(76,144,255,.16);color:#7fb0ff}
-  table{width:100%;border-collapse:collapse;font-size:12.5px}
-  th{text-align:left;color:#5d6a85;font-weight:600;font-size:10.5px;letter-spacing:.5px;
-     text-transform:uppercase;padding:9px 7px;border-bottom:1px solid rgba(255,255,255,.07)}
-  td{padding:11px 7px;border-bottom:1px solid rgba(255,255,255,.045)}
-  td.mono{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#8f9cb8}
-  .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;
-       background:rgba(76,144,255,.15);color:#6fa8ff}
-  .ok{color:#34d399}.warn{color:#ffb020}.bad{color:#ff6b6b}.off{color:#5d6a85}
-  .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:12px;flex-wrap:wrap}
-  .muted{color:#5d6a85;font-size:11.5px}
-  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1a2130;
-         border:1px solid rgba(255,255,255,.1);padding:11px 18px;border-radius:12px;font-size:13px;
-         opacity:0;transition:.25s;pointer-events:none}
-  .toast.show{opacity:1}
-  .empty{text-align:center;color:#4a5568;padding:38px 0;font-size:12.5px}
-  .kv{display:flex;gap:8px;font-size:11px;color:#5d6a85;margin-top:10px;flex-wrap:wrap}
-  .kv span{background:rgba(255,255,255,.04);padding:4px 9px;border-radius:7px}
-</style>
-</head>
-<body><div class="wrap"><div id="app"></div></div>
-<div class="toast" id="toast"></div>
-<script>
-const $ = s => document.querySelector(s);
-let token = localStorage.getItem('token') || '';
-let tab = 'nodes';
-let nodes = [], users = [], me = null;
-
-function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');
-  clearTimeout(window._t);window._t=setTimeout(()=>t.classList.remove('show'),2000);}
-
-async function api(path, body, method){
-  const opt={method:method||(body?'POST':'GET'),headers:{'Content-Type':'application/json'}};
-  if(token) opt.headers['Authorization']='Bearer '+token;
-  if(body) opt.body=JSON.stringify(body);
-  const r=await fetch(path,opt);
-  if(r.status===401){token='';localStorage.removeItem('token');render();throw new Error('登录已失效');}
-  const d=await r.json().catch(()=>({}));
-  if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
-  return d;
-}
-const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const fmtDate=ts=>{ if(!ts) return '永久'; const d=new Date(ts*1000);
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
-const daysLeft=ts=>{ if(!ts) return null; return Math.ceil((ts*1000-Date.now())/86400000); };
-
-function render(){
-  $('#app').innerHTML = token ? mainPage() : loginPage();
-  if(token){ loadAll(); }
-}
-
-function loginPage(){
-  return `<div class="login">
-    <div class="brand"><div class="logo">⚡</div><h1>待续IP系统</h1></div>
-    <div class="sub">商业版管理后台</div>
-    <div class="card">
-      <label>管理员账号</label><input id="u" placeholder="admin">
-      <label>密码</label><input id="p" type="password" placeholder="••••••"
-        onkeydown="if(event.key==='Enter')doLogin()">
-      <div style="height:16px"></div>
-      <button style="width:100%" onclick="doLogin()">登 录</button>
-    </div></div>`;
-}
-
-function mainPage(){
-  return `
-  <div class="brand"><div class="logo">⚡</div><h1>待续IP系统</h1></div>
-  <div class="sub">商业版管理后台 · 用户必须由这里开通</div>
-  <div class="tabs">
-    <div class="tab ${tab==='nodes'?'on':''}" onclick="switchTab('nodes')">线路管理</div>
-    <div class="tab ${tab==='users'?'on':''}" onclick="switchTab('users')">用户管理</div>
-    <div style="flex:1"></div>
-    <div class="tab" onclick="logout()">退出</div>
-  </div>
-  <div id="pane"></div>`;
-}
-
-function switchTab(t){ tab=t; render(); }
-
-async function loadAll(){
-  try{
-    if(tab==='nodes'){
-      const d = await api('/api/nodes'); nodes = d.nodes||[];
-      $('#pane').innerHTML = nodesPane();
-    }else{
-      const d = await api('/api/users'); users = d.users||[];
-      $('#pane').innerHTML = usersPane();
-    }
-  }catch(e){ toast(e.message); }
-}
-
-function nodesPane(){
-  return `
-  <div class="card" style="margin-bottom:16px">
-    <div class="head"><b style="font-size:13.5px">添加线路</b><span class="muted">SOCKS5</span></div>
-    <div class="row">
-      <input id="n_name" placeholder="名称">
-      <input id="n_host" placeholder="服务器 IP / 域名">
-      <input id="n_port" placeholder="端口" value="1080">
-    </div>
-    <div class="row" style="margin-top:10px">
-      <input id="n_user" placeholder="用户名（可空）">
-      <input id="n_pass" placeholder="密码（可空）">
-      <input id="n_group" placeholder="分组，如 香港">
-    </div>
-    <div style="height:14px"></div>
-    <div class="row">
-      <button onclick="addNode()">添加线路</button>
-      <button class="ghost" onclick="bulkAdd()">批量导入</button>
-    </div>
-  </div>
-  <div class="card">
-    <div class="head"><b style="font-size:13.5px">线路列表</b><span class="muted">${nodes.length} 条</span></div>
-    ${nodes.length? nodeTable():'<div class="empty">还没有线路</div>'}
-  </div>`;
-}
-
-function nodeTable(){
-  return `<table><thead><tr><th>名称</th><th>服务器</th><th>端口</th><th>分组</th><th>状态</th><th></th></tr></thead><tbody>`
-  + nodes.map(n=>`<tr>
-      <td>${esc(n.name)}</td><td class="mono">${esc(n.host)}</td><td class="mono">${n.port}</td>
-      <td>${n.group?'<span class="tag">'+esc(n.group)+'</span>':'<span class="muted">—</span>'}</td>
-      <td class="${n.enabled===false?'off':'ok'}">${n.enabled===false?'停用':'启用'}</td>
-      <td style="text-align:right;white-space:nowrap">
-        <button class="ghost sm" onclick="toggleNode('${n.id}')">${n.enabled===false?'启用':'停用'}</button>
-        <button class="danger sm" onclick="delNode('${n.id}')">删除</button>
-      </td></tr>`).join('')+`</tbody></table>`;
-}
-
-function usersPane(){
-  return `
-  <div class="card" style="margin-bottom:16px">
-    <div class="head"><b style="font-size:13.5px">开通账号</b>
-      <span class="muted">App 提交的注册申请也会出现在下面，点「开通」才生效</span></div>
-    <div class="row">
-      <input id="u_name" placeholder="账号，如 vip001">
-      <input id="u_pass" placeholder="密码">
-      <input id="u_days" placeholder="有效天数，留空=永久" value="30">
-    </div>
-    <div class="row" style="margin-top:10px">
-      <input id="u_group" placeholder="线路分组（留空=全部线路）">
-      <input id="u_remark" placeholder="备注 / 联系方式">
-    </div>
-    <div style="height:14px"></div>
-    <button onclick="addUser()">直接开通账号</button>
-    <div class="kv"><span>共 ${users.length}</span>
-      <span class="warn">待审核 ${users.filter(u=>(u.status||'active')==='pending').length}</span>
-      <span>正常 ${users.filter(u=>(u.status||'active')==='active'&&u.enabled).length}</span>
-      <span>已到期 ${users.filter(u=>u.expires&&u.expires<Date.now()/1000).length}</span></div>
-  </div>
-  <div class="card">
-    <div class="head"><b style="font-size:13.5px">账号列表</b>
-      <button class="ghost sm" onclick="loadAll()">刷新</button></div>
-    ${users.length? userTable():'<div class="empty">还没有账号，上面开一个</div>'}
-  </div>`;
-}
-
-function userTable(){
-  return `<table><thead><tr><th>账号</th><th>密码</th><th>联系方式</th><th>状态</th><th>到期</th><th>剩余</th><th></th></tr></thead><tbody>`
-  + users.map(u=>{
-      const st=u.status||'active';
-      const expired=u.expires && u.expires<Date.now()/1000;
-      const left=daysLeft(u.expires);
-      let tag='<span class="ok">正常</span>';
-      if(st==='pending') tag='<span class="warn">待审核</span>';
-      else if(st==='rejected') tag='<span class="bad">已拒绝</span>';
-      else if(!u.enabled) tag='<span class="off">停用</span>';
-      else if(expired) tag='<span class="bad">已到期</span>';
-      const rowStyle = st==='pending' ? ' style="background:rgba(255,176,32,.055)"' : '';
-      return `<tr${rowStyle}>
-        <td><b>${esc(u.username)}</b></td>
-        <td class="mono">${esc(u.plain||'••••')}</td>
-        <td class="muted">${esc(u.remark||'')}</td>
-        <td>${tag}</td>
-        <td class="mono">${fmtDate(u.expires)}</td>
-        <td class="${expired?'bad':(left!==null&&left<7?'warn':'ok')}">${left===null?'—':(expired?'已过期':left+' 天')}</td>
-        <td style="text-align:right;white-space:nowrap">
-          ${st==='pending'
-            ? `<button class="sm" onclick="approve('${u.id}')">开通</button>`
-            : `<button class="ghost sm" onclick="extend('${u.id}')">续期</button>
-               <button class="ghost sm" onclick="toggleUser('${u.id}')">${u.enabled?'停用':'启用'}</button>`}
-          <button class="danger sm" onclick="delUser('${u.id}')">删除</button>
-        </td></tr>`;}).join('')+`</tbody></table>`;
-}
-
-async function approve(id){
-  const d = prompt('开通天数（填 0 = 永久）','30');
-  if(d===null) return;
-  try{ await api('/api/users/approve',{id, days: parseInt(d||'0')}); toast('已开通'); loadAll(); }
-  catch(e){ toast(e.message); }
-}
-
-async function doLogin(){
-  const username=$('#u').value.trim(), password=$('#p').value;
-  try{ const d=await api('/api/login',{username,password});
-    token=d.token; localStorage.setItem('token',token); render(); toast('登录成功');
-  }catch(e){ toast(e.message); }
-}
-function logout(){ token=''; localStorage.removeItem('token'); render(); }
-
-async function addNode(){
-  const n={name:$('#n_name').value.trim(),host:$('#n_host').value.trim(),
-    port:parseInt($('#n_port').value||'0'),username:$('#n_user').value.trim(),
-    password:$('#n_pass').value,group:$('#n_group').value.trim()||'默认'};
-  if(!n.name||!n.host||!n.port) return toast('名称/地址/端口必填');
-  try{ await api('/api/nodes',{node:n}); toast('已添加');
-    ['n_name','n_host','n_user','n_pass','n_group'].forEach(k=>$('#'+k).value=''); loadAll();
-  }catch(e){ toast(e.message); }
-}
-async function bulkAdd(){
-  const text=prompt('一行一条：\n名称|地址|端口|用户名|密码\n或 地址:端口');
-  if(!text) return;
-  try{ const d=await api('/api/nodes/bulk',{text}); toast('导入 '+d.added+' 条'); loadAll(); }
-  catch(e){ toast(e.message); }
-}
-async function toggleNode(id){
-  const n=nodes.find(x=>x.id===id); if(!n) return;
-  try{ await api('/api/nodes',{node:{...n,enabled:n.enabled===false}}); loadAll(); }catch(e){ toast(e.message); }
-}
-async function delNode(id){
-  if(!confirm('删除这条线路？')) return;
-  try{ await api('/api/nodes/delete',{id}); toast('已删除'); loadAll(); }catch(e){ toast(e.message); }
-}
-
-async function addUser(){
-  const username=$('#u_name').value.trim(), password=$('#u_pass').value;
-  const days=$('#u_days').value.trim();
-  if(!username||!password) return toast('账号和密码必填');
-  const body={user:{username,password,days:days?parseInt(days):0,
-    group:$('#u_group').value.trim(),remark:$('#u_remark').value.trim()}};
-  try{ await api('/api/users',body); toast('已开通');
-    ['u_name','u_pass','u_group','u_remark'].forEach(k=>$('#'+k).value=''); loadAll();
-  }catch(e){ toast(e.message); }
-}
-async function toggleUser(id){
-  const u=users.find(x=>x.id===id); if(!u) return;
-  try{ await api('/api/users',{user:{id:u.id,enabled:!u.enabled}}); loadAll(); }catch(e){ toast(e.message); }
-}
-async function extend(id){
-  const u=users.find(x=>x.id===id); if(!u) return;
-  const d=prompt('续期天数（从现在起算）','30');
-  if(!d) return;
-  try{ await api('/api/users',{user:{id:u.id,extend_days:parseInt(d)}}); toast('已续期'); loadAll(); }
-  catch(e){ toast(e.message); }
-}
-async function delUser(id){
-  if(!confirm('删除该账号？删掉后 App 立刻登不进来。')) return;
-  try{ await api('/api/users/delete',{id}); toast('已删除'); loadAll(); }catch(e){ toast(e.message); }
-}
-
-render();
-</script>
-</body></html>
-"""
+PAGE = open(os.path.join(BASE, "admin_page.html"), encoding="utf-8").read() \
+    if os.path.isfile(os.path.join(BASE, "admin_page.html")) else ""
 
 
-# ------------------------------------------------------------------ HTTP
 class Handler(BaseHTTPRequestHandler):
     server_version = "DaixuIP/" + VERSION
     admin_user = "admin"
@@ -477,7 +321,6 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print("[%s] %s" % (time.strftime("%H:%M:%S"), fmt % args))
 
-    # ---- helpers
     def send_json(self, obj, code=200):
         body = json.dumps(obj, ensure_ascii=False).encode()
         self.send_response(code)
@@ -510,7 +353,6 @@ class Handler(BaseHTTPRequestHandler):
         tok = h[7:].strip() if h.startswith("Bearer ") else ""
         return parse_token(tok, self.admin_user, self.admin_pwd)
 
-    # ---- routes
     def do_OPTIONS(self):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -523,27 +365,29 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/", "/index.html"):
             return self.send_html(PAGE)
         if path == "/api/ping":
-            return self.send_json({"ok": True, "version": VERSION, "server": "待续IP系统"})
+            return self.send_json({"ok": True, "version": VERSION, "server": "待续IP系统",
+                                   "storage": "sqlite"})
 
         role, user = self.auth()
 
         if path == "/api/nodes":
             if not role:
                 return self.send_json({"error": "unauthorized"}, 401)
-            with LOCK:
-                d = load_nodes()
-            items = d["nodes"]
             if role == "user":
                 g = (user.get("group") or "").strip()
-                items = [n for n in items if n.get("enabled", True) and (not g or n.get("group") == g)]
-            return self.send_json({"nodes": items, "updated": d["updated"]})
+                items = list_nodes(group=g if g else None, only_enabled=True)
+            else:
+                items = list_nodes()
+            return self.send_json({"nodes": items, "updated": int(time.time())})
 
         if path == "/api/users":
             if role != "admin":
                 return self.send_json({"error": "unauthorized"}, 401)
-            with LOCK:
-                d = load_users()
-            safe = [dict(u, pwd="") for u in d["users"]]
+            safe = []
+            for u in list_users():
+                u = dict(u)
+                u.pop("pwd", None)
+                safe.append(u)
             return self.send_json({"users": safe})
 
         if path == "/api/me":
@@ -561,7 +405,7 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         data = self.body_json()
 
-        # ---------------- 注册（App 提交申请，管理员审核后才可用）
+        # ---- 注册
         if path == "/api/register":
             u = (data.get("username") or "").strip()
             p = data.get("password") or ""
@@ -570,27 +414,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"error": "账号至少 3 位，密码至少 6 位"}, 400)
             if not rate_ok(self.client_address[0]):
                 return self.send_json({"error": "提交太频繁，请稍后再试"}, 429)
-            with LOCK:
-                d = load_users()
-                if any(x["username"] == u for x in d["users"]):
-                    return self.send_json({"error": "账号已存在，换一个"}, 400)
-                rec = {
-                    "id": secrets.token_hex(8),
-                    "username": u,
-                    "pwd": hash_password(p),
-                    "plain": p,
-                    "expires": 0,
-                    "enabled": True,
-                    "status": "pending",
-                    "group": "",
-                    "remark": contact,
-                    "created": int(time.time()),
-                }
-                d["users"].append(rec)
-                save_users(d)
+            if get_user_by_name(u):
+                return self.send_json({"error": "账号已存在，换一个"}, 400)
+            try:
+                insert_user({"id": secrets.token_hex(8), "username": u, "pwd": hash_password(p),
+                             "plain": p, "expires": 0, "enabled": True, "status": "pending",
+                             "group": "", "remark": contact, "created": int(time.time())})
+            except sqlite3.IntegrityError:
+                return self.send_json({"error": "账号已存在，换一个"}, 400)
             return self.send_json({"ok": True, "message": "提交成功，等待管理员开通"})
 
-        # ---------------- 管理员登录
+        # ---- 管理员登录
         if path == "/api/login":
             u = (data.get("username") or "").strip()
             p = data.get("password") or ""
@@ -600,21 +434,18 @@ class Handler(BaseHTTPRequestHandler):
             time.sleep(0.4)
             return self.send_json({"error": "管理员账号或密码错误"}, 401)
 
-        # ---------------- 用户登录（App 用）
+        # ---- 用户登录（App）
         if path == "/api/user/login":
             u = (data.get("username") or "").strip()
             p = data.get("password") or ""
-            with LOCK:
-                d = load_users()
-            rec = next((x for x in d["users"] if x["username"] == u), None)
+            rec = get_user_by_name(u)
             if not rec or not verify_password(p, rec.get("pwd", "")):
                 time.sleep(0.5)
                 return self.send_json({"error": "账号或密码错误，请联系管理员开通"}, 401)
             ok, why = user_active(rec)
             if not ok:
                 return self.send_json({"error": why}, 403)
-            return self.send_json({"token": user_token(rec),
-                                   "role": "user",
+            return self.send_json({"token": user_token(rec), "role": "user",
                                    "user": {"username": rec["username"],
                                             "expires": rec.get("expires", 0),
                                             "group": rec.get("group", "")},
@@ -624,10 +455,10 @@ class Handler(BaseHTTPRequestHandler):
         if not role:
             return self.send_json({"error": "unauthorized"}, 401)
 
-        # ---------------- 线路（仅管理员可写）
         if path in ("/api/nodes", "/api/nodes/delete", "/api/nodes/bulk") and role != "admin":
             return self.send_json({"error": "没有权限"}, 403)
 
+        # ---- 线路
         if path == "/api/nodes":
             node = data.get("node") or {}
             host = (node.get("host") or "").strip()
@@ -637,123 +468,84 @@ class Handler(BaseHTTPRequestHandler):
                 port = 0
             if not host or not (0 < port < 65536):
                 return self.send_json({"error": "地址或端口不合法"}, 400)
-            with LOCK:
-                d = load_nodes()
-                nid = node.get("id") or ""
-                item = {
-                    "id": nid or secrets.token_hex(8),
-                    "name": (node.get("name") or host).strip(),
-                    "host": host, "port": port,
-                    "username": node.get("username") or "",
-                    "password": node.get("password") or "",
-                    "group": node.get("group") or "默认",
-                    "enabled": node.get("enabled", True),
-                    "updated": int(time.time()),
-                }
-                idx = next((i for i, x in enumerate(d["nodes"]) if x["id"] == item["id"]), None)
-                if idx is None:
-                    d["nodes"].append(item)
-                else:
-                    d["nodes"][idx] = item
-                save_nodes(d)
+            item = {"id": node.get("id") or secrets.token_hex(8),
+                    "name": (node.get("name") or host).strip(), "host": host, "port": port,
+                    "username": node.get("username") or "", "password": node.get("password") or "",
+                    "group": node.get("group") or "默认", "enabled": node.get("enabled", True)}
+            upsert_node(item)
             return self.send_json({"ok": True, "node": item})
 
         if path == "/api/nodes/delete":
-            nid = data.get("id")
-            with LOCK:
-                d = load_nodes()
-                d["nodes"] = [x for x in d["nodes"] if x["id"] != nid]
-                save_nodes(d)
+            delete_node(data.get("id"))
             return self.send_json({"ok": True})
 
         if path == "/api/nodes/bulk":
-            text = data.get("text") or ""
             added = 0
-            with LOCK:
-                d = load_nodes()
-                for line in text.splitlines():
-                    line = line.strip()
-                    if not line or line.startswith("#"):
-                        continue
-                    item = parse_line(line)
-                    if item:
-                        d["nodes"].append(item)
-                        added += 1
-                save_nodes(d)
+            for line in (data.get("text") or "").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                item = parse_line(line)
+                if item:
+                    upsert_node(item)
+                    added += 1
             return self.send_json({"ok": True, "added": added})
 
-        # ---------------- 用户管理（仅管理员）
+        # ---- 用户管理
         if path == "/api/users/approve":
             if role != "admin":
                 return self.send_json({"error": "没有权限"}, 403)
             uid = data.get("id")
+            if not get_user_by_id(uid):
+                return self.send_json({"error": "账号不存在"}, 404)
             days = int(data.get("days") or 30)
-            with LOCK:
-                d = load_users()
-                rec = next((x for x in d["users"] if x["id"] == uid), None)
-                if not rec:
-                    return self.send_json({"error": "账号不存在"}, 404)
-                rec["status"] = "active"
-                rec["enabled"] = True
-                rec["expires"] = int(time.time() + days * 86400) if days else 0
-                save_users(d)
+            update_user_fields(uid, {"status": "active", "enabled": 1,
+                                     "expires": int(time.time() + days * 86400) if days else 0})
             return self.send_json({"ok": True})
 
         if path == "/api/users":
             if role != "admin":
                 return self.send_json({"error": "没有权限"}, 403)
             u = data.get("user") or {}
-            with LOCK:
-                d = load_users()
-                if u.get("id"):
-                    rec = next((x for x in d["users"] if x["id"] == u["id"]), None)
-                    if not rec:
-                        return self.send_json({"error": "账号不存在"}, 404)
-                    if "enabled" in u:
-                        rec["enabled"] = bool(u["enabled"])
-                    if u.get("extend_days"):
-                        base = max(time.time(), rec.get("expires", 0))
-                        rec["expires"] = int(base + int(u["extend_days"]) * 86400)
-                    if u.get("password"):
-                        rec["pwd"] = hash_password(u["password"])
-                        rec["plain"] = u["password"]
-                    if "group" in u:
-                        rec["group"] = u["group"]
-                    if "remark" in u:
-                        rec["remark"] = u["remark"]
-                    save_users(d)
-                    return self.send_json({"ok": True})
+            if u.get("id"):
+                rec = get_user_by_id(u["id"])
+                if not rec:
+                    return self.send_json({"error": "账号不存在"}, 404)
+                fields = {}
+                if "enabled" in u:
+                    fields["enabled"] = 1 if u["enabled"] else 0
+                if u.get("extend_days"):
+                    base = max(time.time(), rec.get("expires", 0) or 0)
+                    fields["expires"] = int(base + int(u["extend_days"]) * 86400)
+                if u.get("password"):
+                    fields["pwd"] = hash_password(u["password"])
+                    fields["plain"] = u["password"]
+                if "group" in u:
+                    fields["grp"] = u["group"]
+                if "remark" in u:
+                    fields["remark"] = u["remark"]
+                update_user_fields(u["id"], fields)
+                return self.send_json({"ok": True})
 
-                username = (u.get("username") or "").strip()
-                password = u.get("password") or ""
-                if not username or not password:
-                    return self.send_json({"error": "账号和密码必填"}, 400)
-                if any(x["username"] == username for x in d["users"]):
-                    return self.send_json({"error": "账号已存在"}, 400)
-                days = int(u.get("days") or 0)
-                rec = {
-                    "id": secrets.token_hex(8),
-                    "username": username,
-                    "pwd": hash_password(password),
-                    "plain": password,
-                    "expires": int(time.time() + days * 86400) if days else 0,
-                    "enabled": True,
-                    "group": u.get("group") or "",
-                    "remark": u.get("remark") or "",
-                    "created": int(time.time()),
-                }
-                d["users"].append(rec)
-                save_users(d)
+            username = (u.get("username") or "").strip()
+            password = u.get("password") or ""
+            if not username or not password:
+                return self.send_json({"error": "账号和密码必填"}, 400)
+            if get_user_by_name(username):
+                return self.send_json({"error": "账号已存在"}, 400)
+            days = int(u.get("days") or 0)
+            rec = {"id": secrets.token_hex(8), "username": username, "pwd": hash_password(password),
+                   "plain": password,
+                   "expires": int(time.time() + days * 86400) if days else 0,
+                   "enabled": True, "status": "active", "group": u.get("group") or "",
+                   "remark": u.get("remark") or "", "created": int(time.time())}
+            insert_user(rec)
             return self.send_json({"ok": True, "user": {k: v for k, v in rec.items() if k != "pwd"}})
 
         if path == "/api/users/delete":
             if role != "admin":
                 return self.send_json({"error": "没有权限"}, 403)
-            uid = data.get("id")
-            with LOCK:
-                d = load_users()
-                d["users"] = [x for x in d["users"] if x["id"] != uid]
-                save_users(d)
+            delete_user(data.get("id"))
             return self.send_json({"ok": True})
 
         self.send_json({"error": "not found"}, 404)
@@ -762,17 +554,15 @@ class Handler(BaseHTTPRequestHandler):
 def parse_line(line):
     parts = line.replace("|", " ").replace("\t", " ").split()
     if len(parts) >= 3 and parts[2].isdigit():
-        return {"id": secrets.token_hex(8), "name": parts[0], "host": parts[1], "port": int(parts[2]),
-                "username": parts[3] if len(parts) > 3 else "",
-                "password": parts[4] if len(parts) > 4 else "", "group": "导入",
-                "enabled": True, "updated": int(time.time())}
+        return {"id": secrets.token_hex(8), "name": parts[0], "host": parts[1],
+                "port": int(parts[2]), "username": parts[3] if len(parts) > 3 else "",
+                "password": parts[4] if len(parts) > 4 else "", "group": "导入", "enabled": True}
     if ":" in line:
         seg = line.split(":")
         if len(seg) >= 2 and seg[1].isdigit():
-            return {"id": secrets.token_hex(8), "name": seg[0], "host": seg[0], "port": int(seg[1]),
-                    "username": seg[2] if len(seg) > 2 else "",
-                    "password": seg[3] if len(seg) > 3 else "", "group": "导入",
-                    "enabled": True, "updated": int(time.time())}
+            return {"id": secrets.token_hex(8), "name": seg[0], "host": seg[0],
+                    "port": int(seg[1]), "username": seg[2] if len(seg) > 2 else "",
+                    "password": seg[3] if len(seg) > 3 else "", "group": "导入", "enabled": True}
     return None
 
 
@@ -806,18 +596,20 @@ def main():
     Handler.admin_user = args.user
     Handler.admin_pwd = args.password
 
+    init_db()
+
     srv = ThreadingHTTPServer((args.bind, args.port), Handler)
     print("=" * 60)
-    print("  待续IP系统 · 商业版后台已启动")
+    print("  待续IP系统 · 商业版后台 v%s（SQLite）" % VERSION)
     print("=" * 60)
     print("  电脑打开：   http://127.0.0.1:%d" % args.port)
     for ip in local_ips():
-        print("  局域网/手机：http://%s:%d" % (ip, args.port))
+        print("  局域网/公网：http://%s:%d" % (ip, args.port))
     print("  管理员：     %s / %s" % (args.user, args.password))
-    print("  线路数据：   %s" % NODES_FILE)
-    print("  用户数据：   %s" % USERS_FILE)
+    print("  数据库：     %s" % DB_FILE)
+    print("  账号数：     %d" % len(list_users()))
     print("=" * 60)
-    print("  注意：App 只能用「用户管理」里开通的账号登录。")
+    print("  App 只能用「用户管理」里开通的账号登录。")
     print("=" * 60)
     try:
         srv.serve_forever()
