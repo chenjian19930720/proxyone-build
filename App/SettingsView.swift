@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var ssidInput = ""
     @State private var shareURL: URL?
     @State private var showDebug = false
+    @State private var showSync = false
 
     var body: some View {
         NavigationStack {
@@ -52,6 +53,15 @@ struct SettingsView: View {
 
                     Section {
                         Button {
+                            showSync = true
+                        } label: {
+                            settingRow(icon: "arrow.triangle.2.circlepath",
+                                       title: "线路同步（网页后台）",
+                                       detail: tunnel.syncConfig.isConfigured
+                                       ? "已连接 · \(tunnel.servers.filter { $0.isRemote }.count) 条云端线路"
+                                       : "填后台地址和账号，自动同步线路")
+                        }
+                        Button {
                             showDebug = true
                         } label: {
                             settingRow(icon: "ladybug", title: "调试与日志", detail: "出口 IP / SOCKS5 诊断 / 隧道日志")
@@ -71,16 +81,33 @@ struct SettingsView: View {
                     }
 
                     Section {
-                        infoRow("版本", "1.0 (build 2)")
+                        infoRow("登录账号", SharedStore.accountName.isEmpty ? "本地模式" : SharedStore.accountName)
+                        infoRow("版本", "1.0 (build 4)")
                         infoRow("扩展 Bundle ID", TunnelManager.tunnelBundleID)
                         infoRow("App Group", SharedStore.appGroup)
-                        infoRow("线路数量", "\(tunnel.servers.count)")
+                        infoRow("线路数量", "\(tunnel.servers.count)（云端 \(tunnel.servers.filter { $0.isRemote }.count)）")
                     } header: {
                         sectionHeader("关于")
                     } footer: {
-                        Text("全局模式：TCP / UDP(含 DNS) 全部经 SOCKS5 线路转发。断线排查请先看「调试与日志」。")
+                        Text("全局模式：TCP / UDP(含 DNS) 全部经线路转发。断线排查请先看「调试与日志」。")
                             .font(.system(size: 10))
                             .foregroundColor(.white.opacity(0.25))
+                    }
+
+                    Section {
+                        Button {
+                            SharedStore.isLoggedIn = false
+                            SharedStore.accountName = ""
+                            var c = tunnel.syncConfig
+                            c.token = ""
+                            c.password = ""
+                            tunnel.saveSync(c)
+                        } label: {
+                            Text("退出登录")
+                                .font(.system(size: 14))
+                                .foregroundColor(Theme.bad)
+                                .frame(maxWidth: .infinity)
+                        }
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -89,6 +116,7 @@ struct SettingsView: View {
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showDebug) { DebugView() }
+            .sheet(isPresented: $showSync) { SyncView() }
             .sheet(item: Binding(
                 get: { shareURL.map(ShareItem.init) },
                 set: { if $0 == nil { shareURL = nil } }
