@@ -21,6 +21,7 @@ import hmac
 import json
 import os
 import secrets
+import socket
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -437,6 +438,25 @@ def parse_line(line):
     return None
 
 
+def local_ips():
+    ips = []
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ips.append(s.getsockname()[0])
+        s.close()
+    except Exception:
+        pass
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None):
+            ip = info[4][0]
+            if ip not in ips and not ip.startswith("127.") and ":" not in ip:
+                ips.append(ip)
+    except Exception:
+        pass
+    return ips
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8787)))
@@ -449,13 +469,19 @@ def main():
     Handler.pwd = args.password
 
     srv = ThreadingHTTPServer((args.bind, args.port), Handler)
-    print("=" * 56)
+    print("=" * 60)
     print("  待续IP系统 · 线路后台已启动")
-    print("  地址   http://%s:%d" % ("127.0.0.1", args.port))
-    print("  账号   %s" % args.user)
-    print("  密码   %s" % args.password)
-    print("  数据   %s" % DB)
-    print("=" * 56)
+    print("=" * 60)
+    print("  电脑上打开：  http://127.0.0.1:%d" % args.port)
+    for ip in local_ips():
+        print("  手机/局域网：  http://%s:%d" % (ip, args.port))
+    print("  账号：        %s" % args.user)
+    print("  密码：        %s" % args.password)
+    print("  数据文件：    %s" % DB)
+    print("=" * 60)
+    print("  手机打不开 = 手机和电脑不在同一个 WiFi / 网段。")
+    print("  Ctrl+C 停止。")
+    print("=" * 60)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
