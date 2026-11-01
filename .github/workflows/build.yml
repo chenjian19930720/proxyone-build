@@ -38,14 +38,14 @@ jobs:
           test -d "$APP/PlugIns/ProxyOneTunnel.appex"
           mkdir -p Payload
           cp -R "$APP" Payload/
-          zip -qry ProxyOne-unsigned.ipa Payload
+          zip -qry "待续IP系统.ipa" Payload
           rm -rf Payload
-          ls -lh ProxyOne-unsigned.ipa
+          ls -lh "待续IP系统.ipa"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ProxyOne-unsigned-ipa
-          path: ProxyOne-unsigned.ipa
+          path: 待续IP系统.ipa
           if-no-files-found: error
           retention-days: 30
