@@ -202,3 +202,87 @@ API（也可以自己接别的客户端）：
 | SOCKS5（含账号密码、UDP ASSOCIATE） | ✅ 完整支持，全局转发 |
 | HTTP/HTTPS 代理 | ⚠️ 只能通过导出的 Wi-Fi 描述文件使用 |
 | Shadowsocks (AEAD) / SSR | 🚧 协议内核在下一版实现（需要 ShadowStream 加密层 + SOCKS5 替身传输） |
+
+## 部署到自己的公网服务器
+
+后台是单文件、零依赖，只要能跑 Python 3 的机器就行。
+
+### 1. 上传
+
+```bash
+scp ProxyOne/server/admin_server.py root@你的服务器:/opt/daixu/
+```
+
+### 2. 一键部署（systemd + 防火墙）
+
+```bash
+ssh root@你的服务器
+cd /opt/daixu
+sudo bash deploy.sh 8787
+```
+
+脚本会：建目录 → 生成签名密钥 → 装 systemd 服务 → 开机自启 → 放行端口。
+完成时打印访问地址和管理员账号（默认 `admin` / `admin888`，**装完立刻改**）。
+
+### 3. 配 HTTPS（强烈建议）
+
+没有 HTTPS，用户密码是明文过公网的。用 Caddy 一行搞定：
+
+```bash
+# 假设域名 ip.example.com 已解析到这台服务器
+sudo apt install -y caddy
+sudo systemctl edit caddy     # 或直接改 /etc/caddy/Caddyfile
+```
+
+`/etc/caddy/Caddyfile`：
+
+```
+ip.example.com {
+    encode gzip
+    reverse_proxy 127.0.0.1:8787
+}
+```
+
+```bash
+sudo systemctl reload caddy
+```
+
+Caddy 会自动申请并续期 Let's Encrypt 证书。
+
+### 4. 把 App 的地址指过去
+
+```bash
+python tools/set_backend.py https://ip.example.com     # 改内置地址
+python tools/set_backend.py https://ip.example.com --build   # 改完顺便出包
+```
+
+改的是 `App/AppConfig.swift` 里一行，用户打开 App 就不用填地址了。
+
+### 5. 数据与备份
+
+```
+/opt/daixu/users.json     账号（PBKDF2 密码 + 到期时间 + 审核状态）
+/opt/daixu/nodes.json     线路
+/opt/daixu/.secret        token 签名密钥（丢了所有用户都要重新登录）
+```
+
+```bash
+# 每天 4 点自动备份，保留 30 份
+crontab -e
+0 4 * * * bash /opt/daixu/backup.sh >> /opt/daixu/backup.log 2>&1
+```
+
+### 6. 运营流程
+
+1. 用户打开 App → 点「没有账号？申请开通」→ 提交账号密码
+2. 你在后台「用户管理」看到黄色高亮的待审核记录（带明文密码和联系方式）
+3. 点「开通」填天数 → 用户立刻能登录
+4. 到期后自动拒绝登录；需要续费就点「续期」
+
+### 安全清单
+
+- [ ] 改掉默认管理员密码（`systemctl edit` 里的 `--pass` 参数）
+- [ ] 配 HTTPS，别让密码走明文
+- [ ] 8787 端口只对 Caddy 本机开放（防火墙别直接放公网）
+- [ ] `users.json` / `nodes.json` / `.secret` 不要提交到任何仓库
+- [ ] 定期备份 `.secret`，否则用户全部掉线
