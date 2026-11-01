@@ -22,7 +22,6 @@ final class TunnelManager: ObservableObject {
     private var manager: NETunnelProviderManager?
     private var statusObserver: NSObjectProtocol?
     private let pathMonitor = NWPathMonitor()
-    private var networkUp = true
 
     var isBusy: Bool { status == .connecting || status == .reasserting || status == .disconnecting }
     var isOn: Bool { status == .connected || status == .connecting || status == .reasserting }
