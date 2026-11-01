@@ -28,6 +28,7 @@ import os
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 
@@ -62,6 +63,7 @@ class Api:
 
     def call(self, method, path, payload=None, allow=(200, 201, 204), retries=5):
         url = path if path.startswith("http") else API + path
+        url = urllib.parse.quote(url, safe=":/?#[]@!$&'()*+,;=%")
         data = None
         headers = self._headers()
         if payload is not None:
