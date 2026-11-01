@@ -119,6 +119,12 @@ enum SharedStore {
         set { defaults.set(newValue, forKey: "logged.in.v1") }
     }
 
+    /// 离线模式：不连后台，线路在本地手动管理
+    static var offlineMode: Bool {
+        get { defaults.bool(forKey: "offline.mode.v1") }
+        set { defaults.set(newValue, forKey: "offline.mode.v1") }
+    }
+
     static var accountName: String {
         get { defaults.string(forKey: "account.name.v1") ?? "" }
         set { defaults.set(newValue, forKey: "account.name.v1") }
