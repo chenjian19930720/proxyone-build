@@ -137,6 +137,8 @@ def collect_files():
                 continue
             if f in EXCLUDE_NAMES:
                 continue
+            if f.startswith("build_log") and f.endswith(".txt"):
+                continue
             full = os.path.join(base, f)
             rel = os.path.relpath(full, ROOT).replace("\\", "/")
             out.append((rel, full))
