@@ -156,3 +156,49 @@ user.privileged: root
 
 App 左上角 ↥ 可以导出 `.mobileconfig`：给指定 Wi-Fi 配 HTTP 代理，安装后该 Wi-Fi 下流量走代理。
 优点是不需要付费证书，缺点是只对 Wi-Fi 生效、只支持 HTTP 代理、需要用户手动装描述文件。
+
+## 网页后台（线路管理 + App 同步）
+
+`server/admin_server.py` 是零依赖单文件后台，自带网页管理界面。
+
+```bash
+python server/admin_server.py --port 8787 --user admin --pass admin888
+# 浏览器打开 http://本机IP:8787
+```
+
+- 网页里增删线路、批量导入、停用/启用
+- App「设置 → 线路同步」填同一个地址 + 账号密码 → 点「登录并同步」
+- 之后后台每次改线路，App 打开时自动拉取（云端线路覆盖，手动添加的保留）
+
+部署到公网服务器：
+
+```bash
+# 后台常驻
+nohup python3 admin_server.py --port 8787 > admin.log 2>&1 &
+
+# 或用 systemd（/etc/systemd/system/daixu.service）
+[Service]
+ExecStart=/usr/bin/python3 /opt/daixu/admin_server.py --port 8787 --user admin --pass 你的密码
+Restart=always
+```
+
+数据存在同目录 `nodes.json`，密码校验用 HMAC，token 40 位，请求走 `Authorization: Bearer`。
+
+API（也可以自己接别的客户端）：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/login` | `{username,password}` → `{token}` |
+| GET | `/api/nodes` | 需要 token，返回全部线路 |
+| POST | `/api/nodes` | 新增/更新一条 |
+| POST | `/api/nodes/delete` | 删除 |
+| POST | `/api/nodes/bulk` | 文本批量导入 |
+| GET | `/api/ping` | 健康检查 |
+
+## 代理协议支持现状
+
+| 协议 | 状态 |
+|---|---|
+| SOCKS5（含账号密码、UDP ASSOCIATE） | ✅ 完整支持，全局转发 |
+| HTTP/HTTPS 代理 | ⚠️ 只能通过导出的 Wi-Fi 描述文件使用 |
+| Shadowsocks (AEAD) / SSR | 🚧 协议内核在下一版实现（需要 ShadowStream 加密层 + SOCKS5 替身传输） |
