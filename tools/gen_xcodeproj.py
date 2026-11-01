@@ -21,8 +21,9 @@ def uid(key: str) -> str:
 
 
 # ---------------------------------------------------------------- 文件清单
-APP_FILES = ["ProxyOneApp.swift", "ContentView.swift", "ServerEditorView.swift",
-             "TunnelManager.swift", "DebugView.swift"]
+APP_FILES = ["ProxyOneApp.swift", "ContentView.swift", "HomeView.swift", "NodeListView.swift",
+             "SettingsView.swift", "ServerEditorView.swift", "TunnelManager.swift",
+             "DebugView.swift", "Theme.swift", "ShareSheet.swift"]
 SHARED_FILES = ["ProxyConfig.swift", "MobileConfig.swift"]
 TUNNEL_ROOT_FILES = ["PacketTunnelProvider.swift"]
 TUN2SOCKS_FILES = [
