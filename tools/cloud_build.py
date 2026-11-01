@@ -59,29 +59,56 @@ class Api:
             "User-Agent": "proxyone-cloud-build",
         }
 
-    def call(self, method, path, payload=None, allow=(200, 201, 204)):
+    def call(self, method, path, payload=None, allow=(200, 201, 204), retries=5):
         url = path if path.startswith("http") else API + path
         data = None
         headers = self._headers()
         if payload is not None:
             data = json.dumps(payload).encode()
             headers["Content-Type"] = "application/json"
-        req = urllib.request.Request(url, data=data, headers=headers, method=method)
-        try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                body = resp.read()
-                return resp.status, (json.loads(body) if body else None), dict(resp.headers)
-        except urllib.error.HTTPError as e:
-            body = e.read()
-            if e.code in allow:
-                try:
-                    return e.code, (json.loads(body) if body else None), dict(e.headers)
-                except json.JSONDecodeError:
-                    return e.code, None, dict(e.headers)
-            raise SystemExit("[HTTP %d] %s %s\n%s" % (e.code, method, url,
-                                                     body.decode("utf-8", "replace")[:600]))
 
-    def download(self, url):
+        last = None
+        for attempt in range(retries):
+            req = urllib.request.Request(url, data=data, headers=headers, method=method)
+            try:
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    body = resp.read()
+                    return resp.status, (json.loads(body) if body else None), dict(resp.headers)
+            except urllib.error.HTTPError as e:
+                body = e.read()
+                if e.code in allow:
+                    try:
+                        return e.code, (json.loads(body) if body else None), dict(e.headers)
+                    except json.JSONDecodeError:
+                        return e.code, None, dict(e.headers)
+                if 500 <= e.code < 600 and attempt + 1 < retries:
+                    last = "HTTP %d" % e.code
+                    time.sleep(2 * (attempt + 1))
+                    continue
+                raise SystemExit("[HTTP %d] %s %s\n%s" % (e.code, method, url,
+                                                         body.decode("utf-8", "replace")[:600]))
+            except Exception as e:                      # 网络抖动 / SSL EOF / 连接被重置
+                last = repr(e)
+                if attempt + 1 < retries:
+                    time.sleep(2 * (attempt + 1))
+                    continue
+                raise SystemExit("网络错误（已重试 %d 次）：%s" % (retries, last))
+        raise SystemExit("网络错误：%s" % last)
+
+    def download(self, url, retries=5):
+        last = None
+        for attempt in range(retries):
+            try:
+                return self._download_once(url)
+            except SystemExit:
+                raise
+            except Exception as e:
+                last = e
+                if attempt + 1 < retries:
+                    time.sleep(2 * (attempt + 1))
+        raise SystemExit("下载失败（已重试 %d 次）：%r" % (retries, last))
+
+    def _download_once(self, url):
         """GitHub artifact 返回 302 到带签名的存储地址，那一跳不能带 Authorization。"""
         req = urllib.request.Request(url, headers=self._headers())
         opener = urllib.request.build_opener(NoRedirect)
