@@ -4,6 +4,7 @@ struct SettingsView: View {
     @EnvironmentObject var tunnel: TunnelManager
 
     @State private var autoConnect = SharedStore.autoConnect
+    @State private var sharedAutoConnect = SharedStore.autoConnect
     @State private var showSSIDPrompt = false
     @State private var ssidInput = ""
     @State private var shareURL: URL?
@@ -15,19 +16,36 @@ struct SettingsView: View {
                 Theme.bgGradient.ignoresSafeArea()
                 List {
                     Section {
-                        Toggle(isOn: $autoConnect) {
+                        Toggle(isOn: Binding(
+                            get: { tunnel.alwaysOn },
+                            set: { v in Task { await tunnel.setAlwaysOn(v) } }
+                        )) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("自动连接")
+                                Text("强制保持连接")
                                     .font(.system(size: 14))
-                                Text("App 启动时若已配置节点则自动连上")
+                                Text("系统级 on-demand：断网自动重连，有网立即连上，App 关掉也不断")
                                     .font(.system(size: 10.5))
                                     .foregroundColor(.white.opacity(0.35))
                             }
                         }
                         .tint(Theme.accent)
-                        .onChange(of: autoConnect) { v in
-                            SharedStore.autoConnect = v
+
+                        Toggle(isOn: Binding(
+                            get: { sharedAutoConnect },
+                            set: { v in
+                                sharedAutoConnect = v
+                                SharedStore.autoConnect = v
+                            }
+                        )) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("打开 App 自动连接")
+                                    .font(.system(size: 14))
+                                Text("启动时若有可用线路则自动发起连接")
+                                    .font(.system(size: 10.5))
+                                    .foregroundColor(.white.opacity(0.35))
+                            }
                         }
+                        .tint(Theme.accent)
                     } header: {
                         sectionHeader("连接")
                     }
