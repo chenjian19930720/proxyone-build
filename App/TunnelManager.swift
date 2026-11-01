@@ -20,6 +20,7 @@ final class TunnelManager: ObservableObject {
     @Published var networkUp: Bool = true
     @Published var syncConfig: SyncConfig = SharedStore.syncConfig
     @Published var syncing = false
+    @Published var accountExpires: TimeInterval = SharedStore.userExpires
 
     private var manager: NETunnelProviderManager?
     private var statusObserver: NSObjectProtocol?
@@ -436,34 +437,35 @@ final class TunnelManager: ObservableObject {
         let acc = account.trimmingCharacters(in: .whitespaces)
         guard !acc.isEmpty else { return "请输入账号" }
         let base = backend.trimmingCharacters(in: .whitespaces)
+        guard !base.isEmpty else { return "请填写服务器地址（管理员会提供）" }
+        guard !password.isEmpty else { return "请输入密码" }
 
         var cfg = syncConfig
         cfg.baseURL = base
         cfg.username = acc
 
-        if base.isEmpty {
-            // 没填后台地址：本地模式，只记住账号
-            cfg.password = ""
-            cfg.token = ""
-            cfg.lastMessage = "本地模式（未连接网页后台）"
-            saveSync(cfg)
-            SharedStore.accountName = acc
-            return nil
-        }
-
         do {
-            let token = try await SyncService.login(base: base, user: acc, pass: password)
+            let (token, info) = try await SyncService.login(base: base, user: acc, pass: password)
             cfg.password = password
             cfg.token = token
             cfg.lastSync = 0
             cfg.lastMessage = "登录成功"
             saveSync(cfg)
             SharedStore.accountName = acc
+            SharedStore.userExpires = info?.expires ?? 0
+            SharedStore.userGroups = info?.group ?? ""
+            accountExpires = info?.expires ?? 0
             _ = await syncNow()
             return nil
         } catch {
             return error.localizedDescription
         }
+    }
+
+    /// 账号是否已过期
+    var isAccountExpired: Bool {
+        let e = accountExpires
+        return e > 0 && e < Date().timeIntervalSince1970
     }
 
     func saveSync(_ c: SyncConfig) {
