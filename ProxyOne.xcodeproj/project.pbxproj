@@ -1,0 +1,537 @@
+	// !$*UTF8*$!
+	{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+		/* Begin PBXBuildFile section */
+			FDD86EAD518715C3615B0537 /* ProxyOneApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEBAE2BCC7C0350A4C8348B1 /* ProxyOneApp.swift */; };
+			7AA892D204AA9B58CD1FAEB6 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FD341B521B53260E070DA84 /* ContentView.swift */; };
+			4BF338A30856F0C6A2B47890 /* ServerEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 869B722336F844C3EADF46DA /* ServerEditorView.swift */; };
+			BBB8B0DC5093855416918845 /* TunnelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3655BF5E4479C2DA225356E3 /* TunnelManager.swift */; };
+			33603496CDE044994BEF5159 /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62C1CB3E012D34991848BAAB /* DebugView.swift */; };
+			F5AFFDC4A1E756459FB078F3 /* ProxyConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = F77954F0A46EBDD73832CC46 /* ProxyConfig.swift */; };
+			84316BCF800D8A150D20952A /* MobileConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71927EB3EBF56FCFFF5CA2AA /* MobileConfig.swift */; };
+			510EFA4BA72442E7D7B18078 /* ProxyConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = F77954F0A46EBDD73832CC46 /* ProxyConfig.swift */; };
+			60FDC00B17A17A2EC1D6DF56 /* MobileConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71927EB3EBF56FCFFF5CA2AA /* MobileConfig.swift */; };
+			17E4AA16FC3CBB8035C3991A /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C9E234FE27B4C414815A999 /* PacketTunnelProvider.swift */; };
+			469CCCBDCA14C16E872E6DF2 /* Tun2Socks.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED2EC274A0A99452AA99E622 /* Tun2Socks.swift */; };
+			1C006BC94362B9ACFAECACEC /* IPPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B10684CB845CADCE7043548 /* IPPacket.swift */; };
+			61EA1D03156E4954B887BB1D /* Socks5.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE66A8548B991C2F95D28F30 /* Socks5.swift */; };
+			14EB54F1D7A5F6244E0BD8EF /* TCPRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C34E2C311F6953E5CDC19EF /* TCPRelay.swift */; };
+			B9EFDE1033E3F7E883EFBC32 /* UDPRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8CAC66D17FD27500072F7AF /* UDPRelay.swift */; };
+			ABD01680A3EA1EFD80163648 /* DNSRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F116581780471BAF82CE77F /* DNSRelay.swift */; };
+			0914D3F140A47BD4EFEE91FB /* ProxyOneTunnel.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = CFEE55A02984C083C52C8EFC /* ProxyOneTunnel.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		/* End PBXBuildFile section */
+
+		/* Begin PBXContainerItemProxy section */
+			6332FA84B7BDEC43CA23DF4F /* PBXContainerItemProxy */ = {
+				isa = PBXContainerItemProxy;
+				containerPortal = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+				proxyType = 1;
+				remoteGlobalIDString = 3B349027366F684A61204B00;
+				remoteInfo = ProxyOneTunnel;
+			};
+		/* End PBXContainerItemProxy section */
+
+		/* Begin PBXCopyFilesBuildPhase section */
+			ED9A44CF480770976B222C96 /* Embed App Extensions */ = {
+				isa = PBXCopyFilesBuildPhase;
+				buildActionMask = 2147483647;
+				dstPath = "";
+				dstSubfolderSpec = 13;
+				files = (
+					0914D3F140A47BD4EFEE91FB /* ProxyOneTunnel.appex in Embed App Extensions */,
+				);
+				name = "Embed App Extensions";
+				runOnlyForDeploymentPostprocessing = 0;
+			};
+		/* End PBXCopyFilesBuildPhase section */
+
+		/* Begin PBXFileReference section */
+			CEBAE2BCC7C0350A4C8348B1 /* ProxyOneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProxyOneApp.swift; sourceTree = "<group>"; };
+			6FD341B521B53260E070DA84 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+			869B722336F844C3EADF46DA /* ServerEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerEditorView.swift; sourceTree = "<group>"; };
+			3655BF5E4479C2DA225356E3 /* TunnelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelManager.swift; sourceTree = "<group>"; };
+			62C1CB3E012D34991848BAAB /* DebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugView.swift; sourceTree = "<group>"; };
+			F77954F0A46EBDD73832CC46 /* ProxyConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProxyConfig.swift; sourceTree = "<group>"; };
+			71927EB3EBF56FCFFF5CA2AA /* MobileConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileConfig.swift; sourceTree = "<group>"; };
+			9C9E234FE27B4C414815A999 /* PacketTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketTunnelProvider.swift; sourceTree = "<group>"; };
+			ED2EC274A0A99452AA99E622 /* Tun2Socks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tun2Socks.swift; sourceTree = "<group>"; };
+			7B10684CB845CADCE7043548 /* IPPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IPPacket.swift; sourceTree = "<group>"; };
+			BE66A8548B991C2F95D28F30 /* Socks5.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Socks5.swift; sourceTree = "<group>"; };
+			6C34E2C311F6953E5CDC19EF /* TCPRelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCPRelay.swift; sourceTree = "<group>"; };
+			C8CAC66D17FD27500072F7AF /* UDPRelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UDPRelay.swift; sourceTree = "<group>"; };
+			3F116581780471BAF82CE77F /* DNSRelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DNSRelay.swift; sourceTree = "<group>"; };
+			F6C49E4434E4AB56F89617A9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+			3F554019C4DB69E30BB3B14D /* ProxyOne.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ProxyOne.entitlements; sourceTree = "<group>"; };
+			97353D4228C002593DF8E16B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+			C797AF2D7A64D1A05CAE8A88 /* ProxyOneTunnel.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ProxyOneTunnel.entitlements; sourceTree = "<group>"; };
+			84337AD8D27FCD69AF2C4FC2 /* ProxyOne.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ProxyOne.app; sourceTree = BUILT_PRODUCTS_DIR; };
+			CFEE55A02984C083C52C8EFC /* ProxyOneTunnel.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ProxyOneTunnel.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		/* End PBXFileReference section */
+
+		/* Begin PBXFrameworksBuildPhase section */
+			6EFAB1ECC0D092E20FE51FCD /* Frameworks */ = {
+				isa = PBXFrameworksBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
+			82F7385D4FEF2F2E8083F7F6 /* Frameworks */ = {
+				isa = PBXFrameworksBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
+		/* End PBXFrameworksBuildPhase section */
+
+		/* Begin PBXGroup section */
+			518DA81DB9B99529C0C0AEBE /* Main */ = {
+				isa = PBXGroup;
+				children = (
+					82CF2A43A7100F086D7FCFDD /* App */,
+					9CB302E9C7F6377B351DBEAB /* Shared */,
+					C96EB7C75EBC21A7853E3F69 /* Tunnel */,
+					DFE4BDB6B677368AD9E5F722 /* Resources */,
+					547D009064F7C3F13BEF3460 /* Products */,
+				);
+				sourceTree = "<group>";
+			};
+			82CF2A43A7100F086D7FCFDD /* App */ = {
+				isa = PBXGroup;
+				children = (
+					CEBAE2BCC7C0350A4C8348B1 /* ProxyOneApp.swift */,
+					6FD341B521B53260E070DA84 /* ContentView.swift */,
+					869B722336F844C3EADF46DA /* ServerEditorView.swift */,
+					3655BF5E4479C2DA225356E3 /* TunnelManager.swift */,
+					62C1CB3E012D34991848BAAB /* DebugView.swift */,
+				);
+				path = App;
+				sourceTree = "<group>";
+			};
+			9CB302E9C7F6377B351DBEAB /* Shared */ = {
+				isa = PBXGroup;
+				children = (
+					F77954F0A46EBDD73832CC46 /* ProxyConfig.swift */,
+					71927EB3EBF56FCFFF5CA2AA /* MobileConfig.swift */,
+				);
+				path = Shared;
+				sourceTree = "<group>";
+			};
+			C96EB7C75EBC21A7853E3F69 /* Tunnel */ = {
+				isa = PBXGroup;
+				children = (
+					9C9E234FE27B4C414815A999 /* PacketTunnelProvider.swift */,
+					2D8FAD33F8D5E462E8A0D74A /* Tun2Socks */,
+					ACC8EF0525C82463EC4731E1 /* Resources */,
+				);
+				path = Tunnel;
+				sourceTree = "<group>";
+			};
+			2D8FAD33F8D5E462E8A0D74A /* Tun2Socks */ = {
+				isa = PBXGroup;
+				children = (
+					ED2EC274A0A99452AA99E622 /* Tun2Socks.swift */,
+					7B10684CB845CADCE7043548 /* IPPacket.swift */,
+					BE66A8548B991C2F95D28F30 /* Socks5.swift */,
+					6C34E2C311F6953E5CDC19EF /* TCPRelay.swift */,
+					C8CAC66D17FD27500072F7AF /* UDPRelay.swift */,
+					3F116581780471BAF82CE77F /* DNSRelay.swift */,
+				);
+				path = Tun2Socks;
+				sourceTree = "<group>";
+			};
+			DFE4BDB6B677368AD9E5F722 /* Resources */ = {
+				isa = PBXGroup;
+				children = (
+					F6C49E4434E4AB56F89617A9 /* Info.plist */,
+					3F554019C4DB69E30BB3B14D /* ProxyOne.entitlements */,
+				);
+				path = Resources;
+				sourceTree = "<group>";
+			};
+			ACC8EF0525C82463EC4731E1 /* Resources */ = {
+				isa = PBXGroup;
+				children = (
+					97353D4228C002593DF8E16B /* Info.plist */,
+					C797AF2D7A64D1A05CAE8A88 /* ProxyOneTunnel.entitlements */,
+				);
+				path = Resources;
+				sourceTree = "<group>";
+			};
+			547D009064F7C3F13BEF3460 /* Products */ = {
+				isa = PBXGroup;
+				children = (
+					84337AD8D27FCD69AF2C4FC2 /* ProxyOne.app */,
+					CFEE55A02984C083C52C8EFC /* ProxyOneTunnel.appex */,
+				);
+				name = Products;
+				sourceTree = "<group>";
+			};
+		/* End PBXGroup section */
+
+		/* Begin PBXNativeTarget section */
+			E3435DDA2687639586BF0B70 /* ProxyOne */ = {
+				isa = PBXNativeTarget;
+				buildConfigurationList = 1D97B77EAD2380603A3F2A82 /* Build configuration list for PBXNativeTarget "ProxyOne" */;
+				buildPhases = (
+					4821909E9BF9E73E471FEA84 /* Sources */,
+					6EFAB1ECC0D092E20FE51FCD /* Frameworks */,
+					F667297ED3AB90EAC07798D4 /* Resources */,
+					ED9A44CF480770976B222C96 /* Embed App Extensions */,
+				);
+				buildRules = (
+				);
+				dependencies = (
+					5A9082BF535D9EBF6E6C908A /* PBXTargetDependency */,
+				);
+				name = ProxyOne;
+				productName = ProxyOne;
+				productReference = 84337AD8D27FCD69AF2C4FC2 /* ProxyOne.app */;
+				productType = "com.apple.product-type.application";
+			};
+			3B349027366F684A61204B00 /* ProxyOneTunnel */ = {
+				isa = PBXNativeTarget;
+				buildConfigurationList = FDA4A50F4ADCDF2B4290434C /* Build configuration list for PBXNativeTarget "ProxyOneTunnel" */;
+				buildPhases = (
+					95DAD0AC89EF1F52E2DEFFA0 /* Sources */,
+					82F7385D4FEF2F2E8083F7F6 /* Frameworks */,
+					6D28937945D4D810B2D340B2 /* Resources */,
+				);
+				buildRules = (
+				);
+				dependencies = (
+				);
+				name = ProxyOneTunnel;
+				productName = ProxyOneTunnel;
+				productReference = CFEE55A02984C083C52C8EFC /* ProxyOneTunnel.appex */;
+				productType = "com.apple.product-type.app-extension";
+			};
+		/* End PBXNativeTarget section */
+
+		/* Begin PBXProject section */
+			46F86FAA6BBF9AC94A7E4595 /* Project object */ = {
+				isa = PBXProject;
+				attributes = {
+					BuildIndependentTargetsInParallel = 1;
+					LastSwiftUpdateCheck = 1600;
+					LastUpgradeCheck = 1600;
+					TargetAttributes = {
+						E3435DDA2687639586BF0B70 = {
+							CreatedOnToolsVersion = 16.0;
+						};
+						3B349027366F684A61204B00 = {
+							CreatedOnToolsVersion = 16.0;
+						};
+					};
+				};
+				buildConfigurationList = 1F4E3D13C2320EDA50221924 /* Build configuration list for PBXProject "ProxyOne" */;
+				compatibilityVersion = "Xcode 14.0";
+				developmentRegion = en;
+				hasScannedForEncodings = 0;
+				knownRegions = (
+					en,
+					Base,
+					"zh-Hans",
+				);
+				mainGroup = 518DA81DB9B99529C0C0AEBE;
+				productRefGroup = 547D009064F7C3F13BEF3460 /* Products */;
+				projectDirPath = "";
+				projectRoot = "";
+				targets = (
+					E3435DDA2687639586BF0B70 /* ProxyOne */,
+					3B349027366F684A61204B00 /* ProxyOneTunnel */,
+				);
+			};
+		/* End PBXProject section */
+
+		/* Begin PBXResourcesBuildPhase section */
+			F667297ED3AB90EAC07798D4 /* Resources */ = {
+				isa = PBXResourcesBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
+			6D28937945D4D810B2D340B2 /* Resources */ = {
+				isa = PBXResourcesBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
+		/* End PBXResourcesBuildPhase section */
+
+		/* Begin PBXSourcesBuildPhase section */
+			4821909E9BF9E73E471FEA84 /* Sources */ = {
+				isa = PBXSourcesBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+					FDD86EAD518715C3615B0537 /* ProxyOneApp.swift in Sources */,
+					7AA892D204AA9B58CD1FAEB6 /* ContentView.swift in Sources */,
+					4BF338A30856F0C6A2B47890 /* ServerEditorView.swift in Sources */,
+					BBB8B0DC5093855416918845 /* TunnelManager.swift in Sources */,
+					33603496CDE044994BEF5159 /* DebugView.swift in Sources */,
+					F5AFFDC4A1E756459FB078F3 /* ProxyConfig.swift in Sources */,
+					84316BCF800D8A150D20952A /* MobileConfig.swift in Sources */,
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
+			95DAD0AC89EF1F52E2DEFFA0 /* Sources */ = {
+				isa = PBXSourcesBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+					17E4AA16FC3CBB8035C3991A /* PacketTunnelProvider.swift in Sources */,
+					469CCCBDCA14C16E872E6DF2 /* Tun2Socks.swift in Sources */,
+					1C006BC94362B9ACFAECACEC /* IPPacket.swift in Sources */,
+					61EA1D03156E4954B887BB1D /* Socks5.swift in Sources */,
+					14EB54F1D7A5F6244E0BD8EF /* TCPRelay.swift in Sources */,
+					B9EFDE1033E3F7E883EFBC32 /* UDPRelay.swift in Sources */,
+					ABD01680A3EA1EFD80163648 /* DNSRelay.swift in Sources */,
+					510EFA4BA72442E7D7B18078 /* ProxyConfig.swift in Sources */,
+					60FDC00B17A17A2EC1D6DF56 /* MobileConfig.swift in Sources */,
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+			};
+		/* End PBXSourcesBuildPhase section */
+
+		/* Begin PBXTargetDependency section */
+			5A9082BF535D9EBF6E6C908A /* PBXTargetDependency */ = {
+				isa = PBXTargetDependency;
+				target = 3B349027366F684A61204B00 /* ProxyOneTunnel */;
+				targetProxy = 6332FA84B7BDEC43CA23DF4F /* PBXContainerItemProxy */;
+			};
+		/* End PBXTargetDependency section */
+
+		/* Begin XCBuildConfiguration section */
+			92E165A9035A603BE73D2E62 /* Debug */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				};
+				name = Debug;
+			};
+			E1D3BBA94590957B0374D6E9 /* Release */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+				};
+				name = Release;
+			};
+			82000B87E0EC13AD7FD6DA43 /* Debug */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Resources/ProxyOne.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.proxyone;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				};
+				name = Debug;
+			};
+			16ACE556BD5CA3C51FD3F043 /* Release */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Resources/ProxyOne.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.proxyone;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				};
+				name = Release;
+			};
+			5D9A21E4E4045E62862A88EA /* Debug */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Tunnel/Resources/ProxyOneTunnel.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Tunnel/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.proxyone.tunnel;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				};
+				name = Debug;
+			};
+			B8025BF305DC73BC6F1233D9 /* Release */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Tunnel/Resources/ProxyOneTunnel.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Tunnel/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.proxyone.tunnel;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				};
+				name = Release;
+			};
+		/* End XCBuildConfiguration section */
+
+		/* Begin XCConfigurationList section */
+			1F4E3D13C2320EDA50221924 /* Build configuration list for PBXProject "ProxyOne" */ = {
+				isa = XCConfigurationList;
+				buildConfigurations = (
+					92E165A9035A603BE73D2E62 /* Debug */,
+					E1D3BBA94590957B0374D6E9 /* Release */,
+				);
+				defaultConfigurationIsVisible = 0;
+				defaultConfigurationName = Release;
+			};
+			1D97B77EAD2380603A3F2A82 /* Build configuration list for PBXNativeTarget "ProxyOne" */ = {
+				isa = XCConfigurationList;
+				buildConfigurations = (
+					82000B87E0EC13AD7FD6DA43 /* Debug */,
+					16ACE556BD5CA3C51FD3F043 /* Release */,
+				);
+				defaultConfigurationIsVisible = 0;
+				defaultConfigurationName = Release;
+			};
+			FDA4A50F4ADCDF2B4290434C /* Build configuration list for PBXNativeTarget "ProxyOneTunnel" */ = {
+				isa = XCConfigurationList;
+				buildConfigurations = (
+					5D9A21E4E4045E62862A88EA /* Debug */,
+					B8025BF305DC73BC6F1233D9 /* Release */,
+				);
+				defaultConfigurationIsVisible = 0;
+				defaultConfigurationName = Release;
+			};
+		/* End XCConfigurationList section */
+	};
+	rootObject = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+	}
