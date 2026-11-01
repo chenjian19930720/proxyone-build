@@ -1,5 +1,6 @@
 import Foundation
 import NetworkExtension
+import Network
 import Combine
 
 @MainActor
@@ -15,9 +16,13 @@ final class TunnelManager: ObservableObject {
     @Published var lastError: String?
     @Published var activeConnections: Int = 0
     @Published var tunnelLog: String = ""
+    @Published var alwaysOn: Bool = SharedStore.alwaysOn
+    @Published var networkUp: Bool = true
 
     private var manager: NETunnelProviderManager?
     private var statusObserver: NSObjectProtocol?
+    private let pathMonitor = NWPathMonitor()
+    private var networkUp = true
 
     var isBusy: Bool { status == .connecting || status == .reasserting || status == .disconnecting }
     var isOn: Bool { status == .connected || status == .connecting || status == .reasserting }
@@ -46,6 +51,24 @@ final class TunnelManager: ObservableObject {
         ) { [weak self] note in
             guard let conn = note.object as? NEVPNConnection else { return }
             Task { @MainActor in self?.status = conn.status }
+        }
+
+        // 网络变化：断网时记录，恢复后如果开了「强制保持连接」就立刻拉起隧道
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            let up = path.status == .satisfied
+            Task { @MainActor in self?.handlePathChange(up) }
+        }
+        pathMonitor.start(queue: DispatchQueue(label: "com.example.proxyone.path"))
+    }
+
+    private func handlePathChange(_ up: Bool) {
+        let recovered = up && !networkUp
+        networkUp = up
+        guard up, alwaysOn else { return }        // 有网络：若隧道没连上（含刚恢复网络），补一次启动
+        guard recovered || status == .disconnected || status == .invalid else { return }
+        Task {
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            if alwaysOn && status != .connected { await start() }
         }
     }
 
@@ -98,7 +121,7 @@ final class TunnelManager: ObservableObject {
 
     func start() async {
         guard let server = currentServer, server.isValid else {
-            lastError = "先在「节点」里填好 SOCKS5 服务器地址和端口"
+            lastError = "先在「线路」里填好 SOCKS5 服务器地址和端口"
             return
         }
         lastError = nil
@@ -113,8 +136,45 @@ final class TunnelManager: ObservableObject {
 
     func stop() async {
         guard let manager else { return }
+        // 手动断开等同于关掉「强制保持连接」，否则系统会立刻把隧道拉起来
+        if alwaysOn {
+            alwaysOn = false
+            SharedStore.alwaysOn = false
+            manager.isOnDemandEnabled = false
+            manager.onDemandRules = []
+            try? await manager.saveToPreferences()
+        }
         manager.connection.stopVPNTunnel()
         status = manager.connection.status
+    }
+
+    /// 强制保持连接：断网自动重连，网络恢复立即连上，App 被杀也由系统维持
+    func setAlwaysOn(_ on: Bool) async {
+        alwaysOn = on
+        SharedStore.alwaysOn = on
+
+        guard let m = manager else {
+            if on { await start() }
+            return
+        }
+        m.isOnDemandEnabled = on
+        m.onDemandRules = on ? [Self.keepAliveRule()] : []
+        do {
+            try await m.saveToPreferences()
+            try? await m.loadFromPreferences()
+        } catch {
+            lastError = "保存「保持连接」失败：\(Self.explain(error))"
+            return
+        }
+        if on && status != .connected && status != .connecting {
+            await start()
+        }
+    }
+
+    nonisolated static func keepAliveRule() -> NEOnDemandRule {
+        let rule = NEOnDemandRuleConnect()
+        rule.interfaceTypeMatch = .any
+        return rule
     }
 
     private func ensureManager(server: ProxyServer) async throws -> NETunnelProviderManager {
@@ -130,9 +190,10 @@ final class TunnelManager: ObservableObject {
         proto.disconnectOnSleep = false
 
         manager.protocolConfiguration = proto
-        manager.localizedDescription = "ProxyOne · \(server.name)"
+        manager.localizedDescription = "待续IP系统 · \(server.name)"
         manager.isEnabled = true
-        manager.isOnDemandEnabled = false
+        manager.isOnDemandEnabled = alwaysOn
+        manager.onDemandRules = alwaysOn ? [Self.keepAliveRule()] : []
 
         try await manager.saveToPreferences()
         // 保存后必须重新加载才能启动
