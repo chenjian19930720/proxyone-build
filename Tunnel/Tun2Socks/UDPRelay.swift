@@ -144,6 +144,11 @@ final class UDPRelay {
         guard buf.count >= offset + 2 else { return }
         let srcPort = UInt16(buf[offset]) << 8 | UInt16(buf[offset + 1])
         let payload = Array(buf[(offset + 2)...])
+        // 单个 IP 包不能超过 MTU，超了就丢（DNS 响应正常都在 1300 以内）
+        guard payload.count <= 1300 else {
+            TunnelLog.write("UDP 响应过大 \(payload.count)B，丢弃")
+            return
+        }
 
         // 找到对应会话（按 fd 反查）
         guard let session = sessions.values.first(where: { $0.fd == fd }) else { return }
