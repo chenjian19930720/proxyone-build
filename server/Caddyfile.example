@@ -1,0 +1,18 @@
+# Caddy 反代 + 自动 HTTPS（推荐）
+#
+# 1. 安装 Caddy：https://caddyserver.com/docs/install
+# 2. 把下面 ip.example.com 换成你的域名（域名 A 记录要指向这台服务器）
+# 3. sudo cp Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+#
+# App 内置地址改成：https://ip.example.com
+
+ip.example.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:8787
+}
+
+# 没有域名、只有 IP 时（不推荐，但能用）：
+# :443 {
+#     tls internal
+#     reverse_proxy 127.0.0.1:8787
+# }
