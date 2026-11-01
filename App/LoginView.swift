@@ -6,12 +6,22 @@ struct LoginView: View {
 
     @EnvironmentObject var tunnel: TunnelManager
 
-    @State private var backend = SharedStore.syncConfig.baseURL.isEmpty
-        ? "" : SharedStore.syncConfig.baseURL
+    @State private var backend: String = {
+        let saved = SharedStore.syncConfig.baseURL
+        if !saved.isEmpty { return saved }
+        return AppConfig.defaultBackend
+    }()
     @State private var account = SharedStore.accountName
     @State private var password = ""
     @State private var busy = false
     @State private var error: String?
+
+    /// 只有内置地址为空时才默认展开服务器输入
+    @State private var showServer = !AppConfig.hasBuiltinBackend
+
+    private var canSubmit: Bool {
+        !busy && !account.isEmpty && !password.isEmpty && !backend.isEmpty
+    }
 
     var body: some View {
         ZStack {
@@ -25,7 +35,7 @@ struct LoginView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
-                    Spacer(minLength: 44)
+                    Spacer(minLength: 52)
 
                     VStack(spacing: 14) {
                         ZStack {
@@ -51,10 +61,6 @@ struct LoginView: View {
                     .padding(.bottom, 30)
 
                     VStack(spacing: 13) {
-                        field(icon: "server.rack",
-                              placeholder: "服务器地址，如 http://1.2.3.4:8787",
-                              text: $backend, keyboard: .URL)
-
                         field(icon: "person.fill", placeholder: "账号", text: $account)
 
                         field(icon: "lock.fill", placeholder: "密码", text: $password, secure: true)
@@ -74,8 +80,8 @@ struct LoginView: View {
                             .background(RoundedRectangle(cornerRadius: 14).fill(Theme.gradient))
                             .foregroundColor(.white)
                         }
-                        .disabled(busy || account.isEmpty || backend.isEmpty)
-                        .opacity((account.isEmpty || backend.isEmpty) ? 0.5 : 1)
+                        .disabled(!canSubmit)
+                        .opacity(canSubmit ? 1 : 0.5)
                         .padding(.top, 4)
 
                         if let error {
@@ -84,7 +90,28 @@ struct LoginView: View {
                                 .foregroundColor(Theme.bad)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 6)
-                                .padding(.top, 2)
+                        }
+
+                        // 服务器（默认隐藏，只有需要时展开）
+                        if showServer {
+                            field(icon: "server.rack",
+                                  placeholder: "服务器地址，如 http://1.2.3.4:8787",
+                                  text: $backend, keyboard: .URL)
+                        } else {
+                            HStack(spacing: 5) {
+                                Image(systemName: "checkmark.shield")
+                                    .font(.system(size: 9))
+                                Text("服务器：\(AppConfig.backendLabel)")
+                                    .font(.system(size: 10, design: .monospaced))
+                                Text("·")
+                                Button("修改") {
+                                    withAnimation { showServer = true }
+                                }
+                                .font(.system(size: 10))
+                                .foregroundColor(Theme.accent)
+                            }
+                            .foregroundColor(.white.opacity(0.25))
+                            .padding(.top, 2)
                         }
                     }
                     .padding(20)
@@ -100,7 +127,7 @@ struct LoginView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "lock.shield")
                             .font(.system(size: 10))
-                        Text("账号需由管理员在网页后台开通后才能登录")
+                        Text("账号需由管理员开通后才能登录")
                             .font(.system(size: 10.5))
                     }
                     .foregroundColor(.white.opacity(0.28))
