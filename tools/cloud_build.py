@@ -22,6 +22,7 @@ Contents: RW、Actions: RW、Workflows: Write。
 """
 import argparse
 import base64
+import hashlib
 import json
 import os
 import sys
@@ -35,7 +36,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORKFLOW_FILE = ".github/workflows/build.yml"
 WORKFLOW_NAME = "build.yml"
 ARTIFACT_NAME = "ProxyOne-unsigned-ipa"
-IPA_LOCAL = os.path.join(ROOT, "ProxyOne-unsigned.ipa")
+IPA_LOCAL = os.path.join(ROOT, "待续IP系统.ipa")
 
 EXCLUDE_DIRS = {"build", "Payload", "__pycache__", ".git", "DerivedData"}
 EXCLUDE_EXT = {".ipa", ".zip", ".xcarchive", ".pyc", ".mobileprovision", ".p12"}
@@ -155,19 +156,29 @@ def ensure_repo(api, name, private):
     return owner, (repo.get("default_branch") or "main")
 
 
-def put_file(api, owner, repo, branch, rel, full, use_branch):
-    content = base64.b64encode(open(full, "rb").read()).decode()
-    path = "/repos/%s/%s/contents/%s" % (owner, repo, rel)
-    if use_branch:
-        path += "?ref=" + branch
-    sha = None
-    st, existing, _ = api.call("GET", path, allow=(200, 404))
-    if st == 200 and isinstance(existing, dict):
-        sha = existing.get("sha")
+def blob_sha(data):
+    """Git blob SHA1，和 GitHub Contents API 返回的 sha 一致，用来做增量上传。"""
+    h = hashlib.sha1()
+    h.update(b"blob %d\0" % len(data))
+    h.update(data)
+    return h.hexdigest()
 
-    payload = {"message": "add " + rel, "content": content}
-    if sha:
-        payload["sha"] = sha
+
+def put_file(api, owner, repo, branch, rel, full, use_branch):
+    data = open(full, "rb").read()
+    local_sha = blob_sha(data)
+    path = "/repos/%s/%s/contents/%s" % (owner, repo, rel)
+    q = ("?ref=" + branch) if use_branch else ""
+    st, existing, _ = api.call("GET", path + q, allow=(200, 404))
+
+    remote_sha = existing.get("sha") if (st == 200 and isinstance(existing, dict)) else None
+    if remote_sha == local_sha:
+        return 304                      # 内容没变，跳过
+
+    payload = {"message": ("update " if remote_sha else "add ") + rel,
+               "content": base64.b64encode(data).decode()}
+    if remote_sha:
+        payload["sha"] = remote_sha
     if use_branch:
         payload["branch"] = branch
     st, _, _ = api.call("PUT", "/repos/%s/%s/contents/%s" % (owner, repo, rel),
@@ -177,10 +188,15 @@ def put_file(api, owner, repo, branch, rel, full, use_branch):
 
 def push_files(api, owner, repo, branch, files):
     first = True
+    skipped = 0
     for rel, full in files:
         st = put_file(api, owner, repo, branch, rel, full, use_branch=not first)
-        if st not in (200, 201) and first:
+        if st not in (200, 201, 304) and first:
             st = put_file(api, owner, repo, branch, rel, full, use_branch=True)
+        if st == 304:
+            skipped += 1
+            first = False
+            continue
         if st not in (200, 201):
             if rel == WORKFLOW_FILE:
                 raise SystemExit(
@@ -189,6 +205,8 @@ def push_files(api, owner, repo, branch, files):
             raise SystemExit("上传 %s 失败（HTTP %d）" % (rel, st))
         print("    ↑ %s" % rel)
         first = False
+    if skipped:
+        print("    （%d 个文件未改动，已跳过）" % skipped)
 
 
 def trigger_and_wait(api, owner, repo, branch, timeout_min):
