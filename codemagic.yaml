@@ -38,10 +38,3 @@ workflows:
     artifacts:
       - daixu-ip.ipa
       - build/Build/Products/Release-iphoneos/ProxyOne.app
-    publishing:
-      email:
-        recipients:
-          - placeholder@example.com
-        notify:
-          success: true
-          failure: true
