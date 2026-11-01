@@ -51,10 +51,26 @@ struct RemoteNodeList: Codable {
     var updated: TimeInterval?
 }
 
+struct RemoteUserInfo: Codable {
+    var username: String?
+    var expires: TimeInterval?
+    var group: String?
+}
+
 struct RemoteLoginResult: Codable {
     var token: String?
-    var server: String?
+    var role: String?
+    var user: RemoteUserInfo?
     var error: String?
+}
+
+struct RemoteMe: Codable {
+    var username: String?
+    var expires: TimeInterval?
+    var enabled: Bool?
+    var active: Bool?
+    var reason: String?
+    var group: String?
 }
 
 // MARK: - 同步服务
@@ -128,15 +144,22 @@ enum SyncService {
         }
     }
 
-    static func login(base: String, user: String, pass: String) async throws -> String {
+    static func login(base: String, user: String, pass: String) async throws -> (String, RemoteUserInfo?) {
         guard let root = normalize(base) else { throw SyncError.badURL }
-        let url = root.appendingPathComponent("api/login")
+        let url = root.appendingPathComponent("api/user/login")
         let data = try await post(url, body: ["username": user, "password": pass], token: nil)
         let r = try? JSONDecoder().decode(RemoteLoginResult.self, from: data)
         guard let token = r?.token, !token.isEmpty else {
             throw SyncError.http(200, r?.error ?? "返回里没有 token")
         }
-        return token
+        return (token, r?.user)
+    }
+
+    static func fetchMe(base: String, token: String) async throws -> RemoteMe {
+        guard let root = normalize(base) else { throw SyncError.badURL }
+        let url = root.appendingPathComponent("api/me")
+        let data = try await get(url, token: token)
+        return (try? JSONDecoder().decode(RemoteMe.self, from: data)) ?? RemoteMe()
     }
 
     static func fetchNodes(base: String, token: String) async throws -> [RemoteNode] {
