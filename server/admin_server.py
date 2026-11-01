@@ -148,12 +148,32 @@ def parse_token(tok, admin_user, admin_pwd):
 
 
 def user_active(u):
-    if not u.get("enabled", True):
+    st = u.get("status", "active")
+    if st == "pending":
+        return False, "账号待审核，请联系管理员开通"
+    if st == "rejected":
+        return False, "账号申请未通过"
+    if st == "disabled" or not u.get("enabled", True):
         return False, "账号已停用"
     exp = u.get("expires", 0)
     if exp and exp < time.time():
         return False, "账号已到期"
     return True, ""
+
+
+# 注册频率限制（同一 IP 5 分钟最多 5 次）
+REG_RATE = {}
+
+
+def rate_ok(ip):
+    now = time.time()
+    rec = [t for t in REG_RATE.get(ip, []) if now - t < 300]
+    if len(rec) >= 5:
+        REG_RATE[ip] = rec
+        return False
+    rec.append(now)
+    REG_RATE[ip] = rec
+    return True
 
 
 # ------------------------------------------------------------------ 页面
@@ -324,7 +344,8 @@ function nodeTable(){
 function usersPane(){
   return `
   <div class="card" style="margin-bottom:16px">
-    <div class="head"><b style="font-size:13.5px">开通账号</b><span class="muted">App 只能用这里开的账号登录</span></div>
+    <div class="head"><b style="font-size:13.5px">开通账号</b>
+      <span class="muted">App 提交的注册申请也会出现在下面，点「开通」才生效</span></div>
     <div class="row">
       <input id="u_name" placeholder="账号，如 vip001">
       <input id="u_pass" placeholder="密码">
@@ -332,12 +353,13 @@ function usersPane(){
     </div>
     <div class="row" style="margin-top:10px">
       <input id="u_group" placeholder="线路分组（留空=全部线路）">
-      <input id="u_remark" placeholder="备注，如 微信 xxx">
+      <input id="u_remark" placeholder="备注 / 联系方式">
     </div>
     <div style="height:14px"></div>
-    <button onclick="addUser()">开通账号</button>
-    <div class="kv"><span>账号总数 ${users.length}</span>
-      <span>启用 ${users.filter(u=>u.enabled).length}</span>
+    <button onclick="addUser()">直接开通账号</button>
+    <div class="kv"><span>共 ${users.length}</span>
+      <span class="warn">待审核 ${users.filter(u=>(u.status||'active')==='pending').length}</span>
+      <span>正常 ${users.filter(u=>(u.status||'active')==='active'&&u.enabled).length}</span>
       <span>已到期 ${users.filter(u=>u.expires&&u.expires<Date.now()/1000).length}</span></div>
   </div>
   <div class="card">
@@ -348,22 +370,38 @@ function usersPane(){
 }
 
 function userTable(){
-  return `<table><thead><tr><th>账号</th><th>密码</th><th>到期</th><th>剩余</th><th>状态</th><th>备注</th><th></th></tr></thead><tbody>`
+  return `<table><thead><tr><th>账号</th><th>密码</th><th>联系方式</th><th>状态</th><th>到期</th><th>剩余</th><th></th></tr></thead><tbody>`
   + users.map(u=>{
-      const left=daysLeft(u.expires);
+      const st=u.status||'active';
       const expired=u.expires && u.expires<Date.now()/1000;
-      return `<tr>
+      const left=daysLeft(u.expires);
+      let tag='<span class="ok">正常</span>';
+      if(st==='pending') tag='<span class="warn">待审核</span>';
+      else if(st==='rejected') tag='<span class="bad">已拒绝</span>';
+      else if(!u.enabled) tag='<span class="off">停用</span>';
+      else if(expired) tag='<span class="bad">已到期</span>';
+      const rowStyle = st==='pending' ? ' style="background:rgba(255,176,32,.055)"' : '';
+      return `<tr${rowStyle}>
         <td><b>${esc(u.username)}</b></td>
         <td class="mono">${esc(u.plain||'••••')}</td>
-        <td class="mono">${fmtDate(u.expires)}</td>
-        <td class="${expired?'bad':(left!==null&&left<7?'warn':'ok')}">${left===null?'永久':(expired?'已过期':left+' 天')}</td>
-        <td class="${u.enabled?'ok':'off'}">${u.enabled?'正常':'停用'}</td>
         <td class="muted">${esc(u.remark||'')}</td>
+        <td>${tag}</td>
+        <td class="mono">${fmtDate(u.expires)}</td>
+        <td class="${expired?'bad':(left!==null&&left<7?'warn':'ok')}">${left===null?'—':(expired?'已过期':left+' 天')}</td>
         <td style="text-align:right;white-space:nowrap">
-          <button class="ghost sm" onclick="extend('${u.id}')">续期</button>
-          <button class="ghost sm" onclick="toggleUser('${u.id}')">${u.enabled?'停用':'启用'}</button>
+          ${st==='pending'
+            ? `<button class="sm" onclick="approve('${u.id}')">开通</button>`
+            : `<button class="ghost sm" onclick="extend('${u.id}')">续期</button>
+               <button class="ghost sm" onclick="toggleUser('${u.id}')">${u.enabled?'停用':'启用'}</button>`}
           <button class="danger sm" onclick="delUser('${u.id}')">删除</button>
         </td></tr>`;}).join('')+`</tbody></table>`;
+}
+
+async function approve(id){
+  const d = prompt('开通天数（填 0 = 永久）','30');
+  if(d===null) return;
+  try{ await api('/api/users/approve',{id, days: parseInt(d||'0')}); toast('已开通'); loadAll(); }
+  catch(e){ toast(e.message); }
 }
 
 async function doLogin(){
@@ -523,6 +561,35 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         data = self.body_json()
 
+        # ---------------- 注册（App 提交申请，管理员审核后才可用）
+        if path == "/api/register":
+            u = (data.get("username") or "").strip()
+            p = data.get("password") or ""
+            contact = (data.get("contact") or "").strip()
+            if len(u) < 3 or len(p) < 6:
+                return self.send_json({"error": "账号至少 3 位，密码至少 6 位"}, 400)
+            if not rate_ok(self.client_address[0]):
+                return self.send_json({"error": "提交太频繁，请稍后再试"}, 429)
+            with LOCK:
+                d = load_users()
+                if any(x["username"] == u for x in d["users"]):
+                    return self.send_json({"error": "账号已存在，换一个"}, 400)
+                rec = {
+                    "id": secrets.token_hex(8),
+                    "username": u,
+                    "pwd": hash_password(p),
+                    "plain": p,
+                    "expires": 0,
+                    "enabled": True,
+                    "status": "pending",
+                    "group": "",
+                    "remark": contact,
+                    "created": int(time.time()),
+                }
+                d["users"].append(rec)
+                save_users(d)
+            return self.send_json({"ok": True, "message": "提交成功，等待管理员开通"})
+
         # ---------------- 管理员登录
         if path == "/api/login":
             u = (data.get("username") or "").strip()
@@ -616,6 +683,22 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"ok": True, "added": added})
 
         # ---------------- 用户管理（仅管理员）
+        if path == "/api/users/approve":
+            if role != "admin":
+                return self.send_json({"error": "没有权限"}, 403)
+            uid = data.get("id")
+            days = int(data.get("days") or 30)
+            with LOCK:
+                d = load_users()
+                rec = next((x for x in d["users"] if x["id"] == uid), None)
+                if not rec:
+                    return self.send_json({"error": "账号不存在"}, 404)
+                rec["status"] = "active"
+                rec["enabled"] = True
+                rec["expires"] = int(time.time() + days * 86400) if days else 0
+                save_users(d)
+            return self.send_json({"ok": True})
+
         if path == "/api/users":
             if role != "admin":
                 return self.send_json({"error": "没有权限"}, 403)
