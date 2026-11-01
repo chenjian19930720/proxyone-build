@@ -41,7 +41,8 @@ IPA_LOCAL = os.path.join(ROOT, "待续IP系统.ipa")
 
 EXCLUDE_DIRS = {"build", "Payload", "__pycache__", ".git", "DerivedData"}
 EXCLUDE_EXT = {".ipa", ".zip", ".xcarchive", ".pyc", ".mobileprovision", ".p12"}
-EXCLUDE_NAMES = {".DS_Store", ".gh_token", "_artifact.zip", "ProxyOne-source.zip"}
+EXCLUDE_NAMES = {".DS_Store", ".gh_token", "_artifact.zip", "ProxyOne-source.zip",
+                 "users.json", "nodes.json", ".secret", "admin.log"}
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
