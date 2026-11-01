@@ -14,8 +14,8 @@ struct ContentView: View {
                 .tabItem { Label("线路", systemImage: "list.bullet.rectangle.portrait.fill") }
                 .tag(1)
 
-            SettingsView()
-                .tabItem { Label("设置", systemImage: "gearshape.fill") }
+            AccountView()
+                .tabItem { Label("账户", systemImage: "person.crop.circle.fill") }
                 .tag(2)
         }
         .tint(Theme.accent)
