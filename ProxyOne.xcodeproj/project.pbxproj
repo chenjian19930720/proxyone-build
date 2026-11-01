@@ -20,6 +20,7 @@
 			E110D3F97B19962F04691452 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5C869EC0300F466B21FF6A7 /* LoginView.swift */; };
 			F6548F8051AE44E2A2009EFD /* SyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 247972FA2A34C5B6458B3789 /* SyncView.swift */; };
 			D0763796E5A4A8DC81A8A8DB /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D7FB2C3390FB08A4D458A0F /* AppConfig.swift */; };
+			904ECFBAFFD186DFFFEA7EA9 /* RegisterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8163ACFD56E84681C573FE27 /* RegisterView.swift */; };
 			F5AFFDC4A1E756459FB078F3 /* ProxyConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = F77954F0A46EBDD73832CC46 /* ProxyConfig.swift */; };
 			84316BCF800D8A150D20952A /* MobileConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71927EB3EBF56FCFFF5CA2AA /* MobileConfig.swift */; };
 			A92B0E719CE6A4D62B0A3569 /* SyncConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 645D527997787C4774ABCC3E /* SyncConfig.swift */; };
@@ -75,6 +76,7 @@
 			D5C869EC0300F466B21FF6A7 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 			247972FA2A34C5B6458B3789 /* SyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncView.swift; sourceTree = "<group>"; };
 			6D7FB2C3390FB08A4D458A0F /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+			8163ACFD56E84681C573FE27 /* RegisterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegisterView.swift; sourceTree = "<group>"; };
 			F77954F0A46EBDD73832CC46 /* ProxyConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProxyConfig.swift; sourceTree = "<group>"; };
 			71927EB3EBF56FCFFF5CA2AA /* MobileConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileConfig.swift; sourceTree = "<group>"; };
 			645D527997787C4774ABCC3E /* SyncConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncConfig.swift; sourceTree = "<group>"; };
@@ -139,6 +141,7 @@
 					D5C869EC0300F466B21FF6A7 /* LoginView.swift */,
 					247972FA2A34C5B6458B3789 /* SyncView.swift */,
 					6D7FB2C3390FB08A4D458A0F /* AppConfig.swift */,
+					8163ACFD56E84681C573FE27 /* RegisterView.swift */,
 					D35EC48B6F8BFCC8DF5C8E6B /* Assets.xcassets */,
 				);
 				path = App;
@@ -317,6 +320,7 @@
 					E110D3F97B19962F04691452 /* LoginView.swift in Sources */,
 					F6548F8051AE44E2A2009EFD /* SyncView.swift in Sources */,
 					D0763796E5A4A8DC81A8A8DB /* AppConfig.swift in Sources */,
+					904ECFBAFFD186DFFFEA7EA9 /* RegisterView.swift in Sources */,
 					F5AFFDC4A1E756459FB078F3 /* ProxyConfig.swift in Sources */,
 					84316BCF800D8A150D20952A /* MobileConfig.swift in Sources */,
 					A92B0E719CE6A4D62B0A3569 /* SyncConfig.swift in Sources */,
