@@ -124,6 +124,17 @@ enum SharedStore {
         set { defaults.set(newValue, forKey: "account.name.v1") }
     }
 
+    /// 账号到期时间（0 = 永久）
+    static var userExpires: TimeInterval {
+        get { defaults.double(forKey: "user.expires.v1") }
+        set { defaults.set(newValue, forKey: "user.expires.v1") }
+    }
+
+    static var userGroups: String {
+        get { defaults.string(forKey: "user.groups.v1") ?? "" }
+        set { defaults.set(newValue, forKey: "user.groups.v1") }
+    }
+
     static var syncConfig: SyncConfig {
         get {
             guard let data = defaults.data(forKey: "sync.config.v1"),
