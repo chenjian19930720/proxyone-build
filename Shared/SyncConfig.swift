@@ -155,8 +155,19 @@ enum SyncService {
         return (token, r?.user)
     }
 
-    static func fetchMe(base: String, token: String) async throws -> RemoteMe {
+    /// 提交注册申请，返回服务端提示语
+    static func register(base: String, user: String, pass: String, contact: String) async throws -> String {
         guard let root = normalize(base) else { throw SyncError.badURL }
+        let url = root.appendingPathComponent("api/register")
+        let data = try await post(url, body: ["username": user, "password": pass, "contact": contact], token: nil)
+        if let d = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let msg = d["message"] as? String {
+            return msg
+        }
+        return "提交成功，等待管理员开通"
+    }
+
+    static func fetchMe(base: String, token: String) async throws -> RemoteMe {        guard let root = normalize(base) else { throw SyncError.badURL }
         let url = root.appendingPathComponent("api/me")
         let data = try await get(url, token: token)
         return (try? JSONDecoder().decode(RemoteMe.self, from: data)) ?? RemoteMe()
