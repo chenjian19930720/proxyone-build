@@ -132,7 +132,7 @@ final class TunnelManager: ObservableObject {
         manager.protocolConfiguration = proto
         manager.localizedDescription = "ProxyOne · \(server.name)"
         manager.isEnabled = true
-        manager.onDemandEnabled = false
+        manager.isOnDemandEnabled = false
 
         try await manager.saveToPreferences()
         // 保存后必须重新加载才能启动
