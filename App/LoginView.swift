@@ -18,6 +18,7 @@ struct LoginView: View {
 
     /// 只有内置地址为空时才默认展开服务器输入
     @State private var showServer = !AppConfig.hasBuiltinBackend
+    @State private var showRegister = false
 
     private var canSubmit: Bool {
         !busy && !account.isEmpty && !password.isEmpty && !backend.isEmpty
@@ -113,6 +114,15 @@ struct LoginView: View {
                             .foregroundColor(.white.opacity(0.25))
                             .padding(.top, 2)
                         }
+
+                        Button {
+                            showRegister = true
+                        } label: {
+                            Text("没有账号？申请开通")
+                                .font(.system(size: 11.5, weight: .medium))
+                                .foregroundColor(Theme.accent)
+                        }
+                        .padding(.top, 6)
                     }
                     .padding(20)
                     .background(
@@ -140,6 +150,13 @@ struct LoginView: View {
         }
         .onAppear {
             if account.isEmpty { account = SharedStore.accountName }
+        }
+        .sheet(isPresented: $showRegister) {
+            RegisterView(backend: backend) { acc, pwd in
+                account = acc
+                password = pwd
+                error = "账号已提交，等管理员在后台开通后即可登录"
+            }
         }
     }
 
