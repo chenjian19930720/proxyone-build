@@ -22,7 +22,7 @@ def uid(key: str) -> str:
 
 # ---------------------------------------------------------------- 文件清单
 APP_FILES = ["ProxyOneApp.swift", "ContentView.swift", "HomeView.swift", "NodeListView.swift",
-             "SettingsView.swift", "ServerEditorView.swift", "TunnelManager.swift",
+             "AccountView.swift", "ServerEditorView.swift", "TunnelManager.swift",
              "DebugView.swift", "Theme.swift", "ShareSheet.swift",
              "SplashView.swift", "LoginView.swift", "SyncView.swift"]
 SHARED_FILES = ["ProxyConfig.swift", "MobileConfig.swift", "SyncConfig.swift"]
@@ -61,6 +61,8 @@ U = {
     "extFrameworks": uid("phase:ext:frameworks"),
     "extResources": uid("phase:ext:resources"),
     "embedBuildFile": uid("buildfile:embed"),
+    "file:assets": uid("file:App/Assets.xcassets"),
+    "build:assets": uid("build:app:Assets.xcassets"),
     "extDependency": uid("dep:ext"),
     "extProxy": uid("proxy:ext"),
     "projConfigList": uid("configlist:project"),
@@ -119,6 +121,7 @@ for f in TUNNEL_ROOT_FILES:
 for f in TUN2SOCKS_FILES:
     line(f'{U["build:ext:"+f]} /* {f} in Sources */ = {{isa = PBXBuildFile; fileRef = {U["file:"+f]} /* {f} */; }};', 3)
 line(f'{U["embedBuildFile"]} /* ProxyOneTunnel.appex in Embed App Extensions */ = {{isa = PBXBuildFile; fileRef = {U["extProduct"]} /* ProxyOneTunnel.appex */; settings = {{ATTRIBUTES = (RemoveHeadersOnCopy, ); }}; }};', 3)
+line(f'{U["build:assets"]} /* Assets.xcassets in Resources */ = {{isa = PBXBuildFile; fileRef = {U["file:assets"]} /* Assets.xcassets */; }};', 3)
 line("/* End PBXBuildFile section */", 2)
 
 # PBXContainerItemProxy
@@ -167,6 +170,7 @@ for f in TUNNEL_RESOURCES:
     ftype = "text.plist.xml" if f.endswith(".plist") else "text.plist.entitlements"
     line(f'{U["file:tres:"+f]} /* {f} */ = {{isa = PBXFileReference; lastKnownFileType = {ftype}; path = {f}; sourceTree = "<group>"; }};', 3)
 line(f'{U["appProduct"]} /* ProxyOne.app */ = {{isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ProxyOne.app; sourceTree = BUILT_PRODUCTS_DIR; }};', 3)
+line(f'{U["file:assets"]} /* Assets.xcassets */ = {{isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; }};', 3)
 line(f'{U["extProduct"]} /* ProxyOneTunnel.appex */ = {{isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ProxyOneTunnel.appex; sourceTree = BUILT_PRODUCTS_DIR; }};', 3)
 line("/* End PBXFileReference section */", 2)
 
@@ -206,7 +210,7 @@ group("mainGroup", "Main", [
     (U["appResGroup"], "Resources"),
     (U["productsGroup"], "Products"),
 ])
-group("appGroup", "App", [(U["file:" + f], f) for f in APP_FILES], path="App")
+group("appGroup", "App", [(U["file:" + f], f) for f in APP_FILES] + [(U["file:assets"], "Assets.xcassets")], path="App")
 group("sharedGroup", "Shared", [(U["file:" + f], f) for f in SHARED_FILES], path="Shared")
 group("tunnelGroup", "Tunnel", [
     (U["file:" + f], f) for f in TUNNEL_ROOT_FILES
@@ -313,7 +317,15 @@ line("/* End PBXProject section */", 2)
 # PBXResourcesBuildPhase
 line("", 1)
 line("/* Begin PBXResourcesBuildPhase section */", 2)
-for key in ("appResources", "extResources"):
+line(f'{U["appResources"]} /* Resources */ = {{', 3)
+line("isa = PBXResourcesBuildPhase;", 4)
+line("buildActionMask = 2147483647;", 4)
+line("files = (", 4)
+line(f'{U["build:assets"]} /* Assets.xcassets in Resources */,', 5)
+line(");", 4)
+line("runOnlyForDeploymentPostprocessing = 0;", 4)
+line("};", 3)
+for key in ("extResources",):
     line(f'{U[key]} /* Resources */ = {{', 3)
     line("isa = PBXResourcesBuildPhase;", 4)
     line("buildActionMask = 2147483647;", 4)
@@ -439,6 +451,7 @@ config(U["projRelease"], "Release", PROJECT_COMMON.split("\n") + [
 ])
 
 APP_SETTINGS = [
+    "\t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;",
     "\t\t\t\tCODE_SIGN_ENTITLEMENTS = Resources/ProxyOne.entitlements;",
     "\t\t\t\tCODE_SIGN_STYLE = Automatic;",
     "\t\t\t\tCURRENT_PROJECT_VERSION = 1;",
