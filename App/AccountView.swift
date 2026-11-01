@@ -108,10 +108,30 @@ struct AccountView: View {
                         .foregroundColor(.white.opacity(0.28))
                         .lineLimit(1)
                 }
+
+                HStack(spacing: 5) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 8.5))
+                    Text(expireText)
+                        .font(.system(size: 9.5))
+                }
+                .foregroundColor(expired ? Theme.bad : .white.opacity(0.35))
             }
             Spacer()
         }
         .card()
+    }
+
+    private var expired: Bool { tunnel.isAccountExpired }
+
+    private var expireText: String {
+        let exp = tunnel.accountExpires
+        if exp <= 0 { return "永久有效" }
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        let days = Int((exp - Date().timeIntervalSince1970) / 86400)
+        let d = f.string(from: Date(timeIntervalSince1970: exp))
+        return expired ? "已于 \(d) 到期" : "有效期至 \(d)（剩 \(max(0, days)) 天）"
     }
 
     // MARK: 权限 / 权益
@@ -123,6 +143,8 @@ struct AccountView: View {
 
             privilege(icon: "checkmark.seal.fill", color: Theme.ok,
                       title: "全局代理", detail: "TCP / UDP / DNS 全量转发", enabled: true)
+            privilege(icon: "calendar.badge.clock", color: expired ? Theme.bad : Theme.ok,
+                      title: "账号有效期", detail: expireText, enabled: !expired)
             privilege(icon: "arrow.triangle.2.circlepath", color: isCloud ? Theme.ok : .white.opacity(0.3),
                       title: "云端线路同步", detail: isCloud ? "已连接 · \(cloudCount) 条线路" : "未连接网页后台",
                       enabled: isCloud)
