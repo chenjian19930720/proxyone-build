@@ -1,0 +1,16 @@
+{
+  "nodes": [
+    {
+      "id": "2bf9f6e85851ea8e",
+      "name": "??01",
+      "host": "1.2.3.4",
+      "port": 1080,
+      "username": "u",
+      "password": "p",
+      "group": "??",
+      "enabled": true,
+      "updated": 1793563131
+    }
+  ],
+  "updated": 1793563131
+}
