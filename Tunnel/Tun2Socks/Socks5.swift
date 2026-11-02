@@ -95,10 +95,12 @@ enum Socks5 {
         var one: Int32 = 1
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
 
-        guard connect(fd, info.pointee.ai_addr, info.pointee.ai_addrlen) == 0 else {
-            let msg = String(cString: strerror(errno))
+        guard SocketUtil.connectWithTimeout(fd: fd,
+                                            addr: info.pointee.ai_addr,
+                                            len: info.pointee.ai_addrlen,
+                                            timeoutMs: 8000) else {
             close(fd)
-            throw Socks5Error.connectFailed("\(server.endpoint) — \(msg)")
+            throw Socks5Error.connectFailed("\(server.endpoint) — 连接超时或不可达")
         }
         return fd
     }
