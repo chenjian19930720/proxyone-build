@@ -106,6 +106,16 @@ enum SyncError: LocalizedError {
 
 enum SyncService {
 
+    /// 把阻塞的 socket 请求放到后台线程，保持 async 接口
+    private static func run<T>(_ block: @escaping () throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do { cont.resume(returning: try block()) }
+                catch { cont.resume(throwing: error) }
+            }
+        }
+    }
+
     static func normalize(_ raw: String) -> URL? {
         var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         if s.isEmpty { return nil }
@@ -116,103 +126,65 @@ enum SyncService {
         return URL(string: s)
     }
 
-    private static func post(_ url: URL, body: [String: Any], token: String?) async throws -> Data {
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.timeoutInterval = 12
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let token, !token.isEmpty {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        do {
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-            if code != 200 {
-                let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
-                throw SyncError.http(code, msg ?? "请求失败")
-            }
-            return data
-        } catch let e as SyncError {
-            throw e
-        } catch {
-            throw SyncError.network(error.localizedDescription)
-        }
-    }
-
-    private static func get(_ url: URL, token: String) async throws -> Data {
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 12
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        do {
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-            if code != 200 {
-                let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
-                throw SyncError.http(code, msg ?? "请求失败")
-            }
-            return data
-        } catch let e as SyncError {
-            throw e
-        } catch {
-            throw SyncError.network(error.localizedDescription)
-        }
-    }
-
     static func login(base: String, user: String, pass: String) async throws -> (String, RemoteUserInfo?) {
         guard let root = normalize(base) else { throw SyncError.badURL }
-        let url = root.appendingPathComponent("api/user/login")
-        let data = try await post(url, body: ["username": user, "password": pass], token: nil)
-        let r = try? JSONDecoder().decode(RemoteLoginResult.self, from: data)
-        guard let token = r?.token, !token.isEmpty else {
-            throw SyncError.http(200, r?.error ?? "返回里没有 token")
-        }
-        return (token, r?.user)
-    }
-
-    /// 提交注册申请，返回服务端提示语
-    static func register(base: String, user: String, pass: String, contact: String) async throws -> String {
-        guard let root = normalize(base) else { throw SyncError.badURL }
-        let url = root.appendingPathComponent("api/register")
-        let data = try await post(url, body: ["username": user, "password": pass, "contact": contact], token: nil)
-        if let d = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let msg = d["message"] as? String {
-            return msg
-        }
-        return "提交成功，等待管理员开通"
-    }
-
-    /// 拉服务器配置（公开接口，不需要登录），用于同步离线密码
-    static func fetchConfig(base: String) async throws -> RemoteConfig {
-        guard let root = normalize(base) else { throw SyncError.badURL }
-        let url = root.appendingPathComponent("api/config")
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 8
-        do {
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            guard (resp as? HTTPURLResponse)?.statusCode == 200 else {
-                throw SyncError.http((resp as? HTTPURLResponse)?.statusCode ?? 0, "配置读取失败")
+        let url = root.absoluteString + "/api/user/login"
+        return try await run {
+            let (_, obj) = try SimpleHTTP.postJSON(url,
+                                                   body: ["username": user, "password": pass])
+            guard let token = obj["token"] as? String, !token.isEmpty else {
+                throw SyncError.http(200, (obj["error"] as? String) ?? "返回里没有 token")
             }
-            return (try? JSONDecoder().decode(RemoteConfig.self, from: data)) ?? RemoteConfig()
-        } catch let e as SyncError {
-            throw e
-        } catch {
-            throw SyncError.network(error.localizedDescription)
+            var info: RemoteUserInfo?
+            if let u = obj["user"] as? [String: Any] {
+                info = RemoteUserInfo(username: u["username"] as? String,
+                                      expires: (u["expires"] as? NSNumber)?.doubleValue,
+                                      group: u["group"] as? String)
+            }
+            return (token, info)
         }
-    }
-
-    static func fetchMe(base: String, token: String) async throws -> RemoteMe {        guard let root = normalize(base) else { throw SyncError.badURL }
-        let url = root.appendingPathComponent("api/me")
-        let data = try await get(url, token: token)
-        return (try? JSONDecoder().decode(RemoteMe.self, from: data)) ?? RemoteMe()
     }
 
     static func fetchNodes(base: String, token: String) async throws -> [RemoteNode] {
         guard let root = normalize(base) else { throw SyncError.badURL }
-        let url = root.appendingPathComponent("api/nodes")
-        let data = try await get(url, token: token)
-        let list = try? JSONDecoder().decode(RemoteNodeList.self, from: data)
-        return list?.nodes ?? []
+        let url = root.absoluteString + "/api/nodes"
+        return try await run {
+            let obj = try SimpleHTTP.getJSON(url, token: token)
+            let data = try JSONSerialization.data(withJSONObject: obj)
+            let list = try? JSONDecoder().decode(RemoteNodeList.self, from: data)
+            return list?.nodes ?? []
+        }
+    }
+
+    static func fetchConfig(base: String) async throws -> RemoteConfig {
+        guard let root = normalize(base) else { throw SyncError.badURL }
+        let url = root.absoluteString + "/api/config"
+        return try await run {
+            let obj = try SimpleHTTP.getJSON(url)
+            let data = try JSONSerialization.data(withJSONObject: obj)
+            return (try? JSONDecoder().decode(RemoteConfig.self, from: data)) ?? RemoteConfig()
+        }
+    }
+
+    static func fetchMe(base: String, token: String) async throws -> RemoteMe {
+        guard let root = normalize(base) else { throw SyncError.badURL }
+        let url = root.absoluteString + "/api/me"
+        return try await run {
+            let obj = try SimpleHTTP.getJSON(url, token: token)
+            let data = try JSONSerialization.data(withJSONObject: obj)
+            return (try? JSONDecoder().decode(RemoteMe.self, from: data)) ?? RemoteMe()
+        }
+    }
+
+    static func register(base: String, user: String, pass: String, contact: String) async throws -> String {
+        guard let root = normalize(base) else { throw SyncError.badURL }
+        let url = root.absoluteString + "/api/register"
+        return try await run {
+            let (_, obj) = try SimpleHTTP.postJSON(url,
+                                                   body: ["username": user, "password": pass,
+                                                          "contact": contact])
+            return (obj["message"] as? String) ?? "提交成功，等待管理员开通"
+        }
     }
 
     static func toServers(_ remote: [RemoteNode]) -> [ProxyServer] {
