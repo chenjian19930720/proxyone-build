@@ -125,6 +125,18 @@ enum SharedStore {
         set { defaults.set(newValue, forKey: "offline.mode.v1") }
     }
 
+    /// 服务器下发的离线密码 sha256（缓存）
+    static var offlineHash: String {
+        get { defaults.string(forKey: "offline.hash.v1") ?? "" }
+        set { defaults.set(newValue, forKey: "offline.hash.v1") }
+    }
+
+    /// 后台公告
+    static var announcement: String {
+        get { defaults.string(forKey: "announcement.v1") ?? "" }
+        set { defaults.set(newValue, forKey: "announcement.v1") }
+    }
+
     static var accountName: String {
         get { defaults.string(forKey: "account.name.v1") ?? "" }
         set { defaults.set(newValue, forKey: "account.name.v1") }
