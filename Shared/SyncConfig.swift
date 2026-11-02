@@ -44,6 +44,7 @@ struct RemoteNode: Codable {
     var password: String?
     var group: String?
     var enabled: Bool?
+    var protocol: String?
 }
 
 struct RemoteNodeList: Codable {
@@ -219,7 +220,8 @@ enum SyncService {
                                username: r.username ?? "",
                                password: r.password ?? "",
                                group: (r.group?.isEmpty == false ? r.group! : "云端"),
-                               isRemote: true)
+                               isRemote: true,
+                               proto: (r.protocol ?? "socks5").lowercased())
         }
     }
 }
