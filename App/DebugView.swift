@@ -30,7 +30,7 @@ struct DebugView: View {
                 }
 
                 Section(header: Text("出口 IP"),
-                        footer: Text("已连接时这里显示的是代理出口 IP；未连接时是本机出口。走的是 App 自身的 URLSession，会经过隧道。")) {
+                        footer: Text("已连接时这里显示的是代理出口 IP；未连接时是本机出口。走的是 App 自己的 socket 请求，会经过隧道。")) {
                     HStack {
                         Text(exitIP).font(.system(.footnote, design: .monospaced))
                         Spacer()
@@ -39,6 +39,16 @@ struct DebugView: View {
                         }
                         .disabled(exitIPLoading)
                     }
+                    if !tunnel.lastIPError.isEmpty {
+                        Text(tunnel.lastIPError)
+                            .font(.system(size: 10.5, design: .monospaced))
+                            .foregroundColor(Theme.warn)
+                    }
+                }
+
+                Section(header: Text("隧道流量")) {
+                    row("上行", humanBytes(tunnel.bytesUp))
+                    row("下行", humanBytes(tunnel.bytesDown))
                 }
 
                 Section(header: Text("SOCKS5 诊断"),
@@ -91,9 +101,15 @@ struct DebugView: View {
                     }
                 }
             }
-            .onAppear { log = TunnelLog.read() }
+            .onAppear {
+                log = tunnel.tunnelLog.isEmpty ? TunnelLog.read() : tunnel.tunnelLog
+                Task { await tunnel.refreshStats() }
+            }
             .onReceive(timer) { _ in
-                if autoRefresh { log = TunnelLog.read() }
+                if autoRefresh {
+                    Task { await tunnel.refreshStats() }
+                    log = tunnel.tunnelLog.isEmpty ? TunnelLog.read() : tunnel.tunnelLog
+                }
             }
             .sheet(item: Binding(
                 get: { shareURL.map(ShareItem.init) },
@@ -104,8 +120,15 @@ struct DebugView: View {
         }
     }
 
-    private func row(_ title: String, _ value: String, color: Color = .primary) -> some View {
-        HStack(alignment: .top) {
+    private func humanBytes(_ b: UInt64) -> String {
+        let kb = Double(b) / 1024
+        if kb < 1024 { return String(format: "%.1f KB", kb) }
+        let mb = kb / 1024
+        if mb < 1024 { return String(format: "%.2f MB", mb) }
+        return String(format: "%.2f GB", mb / 1024)
+    }
+
+    private func row(_ title: String, _ value: String, color: Color = .primary) -> some View {        HStack(alignment: .top) {
             Text(title).foregroundColor(.secondary)
             Spacer()
             Text(value)
