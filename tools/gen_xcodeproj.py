@@ -26,7 +26,8 @@ APP_FILES = ["ProxyOneApp.swift", "ContentView.swift", "HomeView.swift", "NodeLi
              "DebugView.swift", "Theme.swift", "ShareSheet.swift",
              "SplashView.swift", "LoginView.swift", "SyncView.swift", "AppConfig.swift",
              "RegisterView.swift"]
-SHARED_FILES = ["ProxyConfig.swift", "MobileConfig.swift", "SyncConfig.swift", "SimpleHTTP.swift"]
+SHARED_FILES = ["ProxyConfig.swift", "MobileConfig.swift", "SyncConfig.swift",
+                "SimpleHTTP.swift", "SocketUtil.swift"]
 TUNNEL_ROOT_FILES = ["PacketTunnelProvider.swift"]
 TUN2SOCKS_FILES = [
     "Tun2Socks.swift",
