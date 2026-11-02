@@ -127,10 +127,19 @@ struct NodeListView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(node.name)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.white.opacity(0.92))
-                        .lineLimit(1)
+                    HStack(spacing: 5) {
+                        Text(node.name)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white.opacity(0.92))
+                            .lineLimit(1)
+                        if node.proto != "socks5" {
+                            Text(node.proto.uppercased())
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(Theme.warn)
+                                .padding(.horizontal, 4).padding(.vertical, 1)
+                                .background(Capsule().fill(Theme.warn.opacity(0.16)))
+                        }
+                    }
                     Text(node.endpoint)
                         .font(.system(size: 10.5, design: .monospaced))
                         .foregroundColor(.white.opacity(0.35))
