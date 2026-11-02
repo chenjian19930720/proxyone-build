@@ -74,16 +74,21 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)?) {
+        let cmd = String(data: messageData, encoding: .utf8) ?? "stats"
         let t = engine?.traffic ?? (up: UInt64(0), down: UInt64(0))
-        let stats: [String: Any] = [
+
+        var payload: [String: Any] = [
             "active": engine?.activeConnections ?? 0,
             "up": t.up,
             "down": t.down,
             "server": server?.endpoint ?? "-",
-            "targets": engine?.targetsText ?? "",
-            "log": TunnelLog.read()
+            "targets": engine?.targetsText ?? ""
         ]
-        let data = (try? JSONSerialization.data(withJSONObject: stats)) ?? Data()
+        // 只有明确要日志时才带日志，避免每 1.5 秒传一次几 KB 文本把界面拖慢
+        if cmd == "log" {
+            payload["log"] = TunnelLog.read()
+        }
+        let data = (try? JSONSerialization.data(withJSONObject: payload)) ?? Data()
         completionHandler?(data)
     }
 
