@@ -84,8 +84,11 @@ enum SimpleHTTP {
         var one: Int32 = 1
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
 
-        guard connect(fd, info.pointee.ai_addr, info.pointee.ai_addrlen) == 0 else {
-            throw HTTPError.connect("\(ep.host):\(ep.port) — \(String(cString: strerror(errno)))")
+        guard SocketUtil.connectWithTimeout(fd: fd,
+                                            addr: info.pointee.ai_addr,
+                                            len: info.pointee.ai_addrlen,
+                                            timeoutMs: Int32(timeout * 1000)) else {
+            throw HTTPError.connect("\(ep.host):\(ep.port) 连接超时或不可达")
         }
 
         // 构造请求
