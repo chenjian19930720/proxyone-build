@@ -104,6 +104,7 @@ function mainPage(){
   <div class="tabs">
     <div class="tab ${tab==='nodes'?'on':''}" onclick="switchTab('nodes')">线路管理</div>
     <div class="tab ${tab==='users'?'on':''}" onclick="switchTab('users')">用户管理</div>
+    <div class="tab ${tab==='settings'?'on':''}" onclick="switchTab('settings')">设置</div>
     <div style="flex:1"></div>
     <div class="tab" onclick="logout()">退出</div>
   </div>
@@ -117,9 +118,12 @@ async function loadAll(){
     if(tab==='nodes'){
       const d = await api('/api/nodes'); nodes = d.nodes||[];
       $('#pane').innerHTML = nodesPane();
-    }else{
+    }else if(tab==='users'){
       const d = await api('/api/users'); users = d.users||[];
       $('#pane').innerHTML = usersPane();
+    }else{
+      const d = await api('/api/settings');
+      $('#pane').innerHTML = settingsPane(d.offline_password || '', d.announcement || '');
     }
   }catch(e){ toast(e.message); }
 }
@@ -151,7 +155,7 @@ function nodesPane(){
 }
 
 function nodeTable(){
-  return `<table><thead><tr><th>名称</th><th>服务器</th><th>端口</th><th>分组</th><th>状态</th><th></th></tr></thead><tbody>`
+  return `<table><thead><tr><th>名称</th><th>服务器</th><th>端口</th><th>城市/分组</th><th>状态</th><th></th></tr></thead><tbody>`
   + nodes.map(n=>`<tr>
       <td>${esc(n.name)}</td><td class="mono">${esc(n.host)}</td><td class="mono">${n.port}</td>
       <td>${n.group?'<span class="tag">'+esc(n.group)+'</span>':'<span class="muted">—</span>'}</td>
@@ -192,7 +196,7 @@ function usersPane(){
 }
 
 function userTable(){
-  return `<table><thead><tr><th>账号</th><th>密码</th><th>联系方式</th><th>状态</th><th>到期</th><th>剩余</th><th></th></tr></thead><tbody>`
+  return `<table><thead><tr><th>账号</th><th>密码</th><th>城市</th><th>联系方式</th><th>状态</th><th>到期</th><th></th></tr></thead><tbody>`
   + users.map(u=>{
       const st=u.status||'active';
       const expired=u.expires && u.expires<Date.now()/1000;
@@ -206,10 +210,10 @@ function userTable(){
       return `<tr${rowStyle}>
         <td><b>${esc(u.username)}</b></td>
         <td class="mono">${esc(u.plain||'••••')}</td>
+        <td>${u.group?'<span class="tag">'+esc(u.group)+'</span>':'<span class="muted">全部</span>'}</td>
         <td class="muted">${esc(u.remark||'')}</td>
         <td>${tag}</td>
         <td class="mono">${fmtDate(u.expires)}</td>
-        <td class="${expired?'bad':(left!==null&&left<7?'warn':'ok')}">${left===null?'—':(expired?'已过期':left+' 天')}</td>
         <td style="text-align:right;white-space:nowrap">
           ${st==='pending'
             ? `<button class="sm" onclick="approve('${u.id}')">开通</button>`
@@ -223,6 +227,47 @@ async function approve(id){
   const d = prompt('开通天数（填 0 = 永久）','30');
   if(d===null) return;
   try{ await api('/api/users/approve',{id, days: parseInt(d||'0')}); toast('已开通'); loadAll(); }
+  catch(e){ toast(e.message); }
+}
+
+function settingsPane(current, announcement){
+  return `<div class="card" style="margin-bottom:16px">
+    <div class="head"><b style="font-size:13.5px">公告</b>
+      <span class="muted">App 首页顶部显示，留空即关闭</span></div>
+    <textarea id="off_ann" rows="3" placeholder="例如：今晚 23:00-24:00 线路维护，请提前安排好">${esc(announcement||'')}</textarea>
+    <div style="height:12px"></div>
+    <button onclick="saveAnnouncement()">保存公告</button>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="head"><b style="font-size:13.5px">离线版访问密码</b>
+      <span class="muted">改完后 App 联网自动生效，无需重新打包</span></div>
+    <div class="row">
+      <input id="off_pwd" placeholder="新的离线密码" value="${esc(current)}">
+      <button onclick="saveOffline()">保存</button>
+    </div>
+    <div class="kv"><span>当前密码：${esc(current) || '(未设置)'}</span></div>
+  </div>
+  <div class="card">
+    <b style="font-size:13px">说明</b>
+    <p class="muted" style="margin-top:10px;line-height:2">
+      · 离线密码：用户在 App 登录页点「离线模式」时需要输入<br>
+      · 公告：写在 App 首页顶部，客户每次打开都能看到<br>
+      · 两项都是 App 联网时自动拉取，改完不用重新打包<br>
+      · 客户端内置了兜底密码，服务器完全连不上时用它
+    </p>
+  </div>`;
+}
+
+async function saveAnnouncement(){
+  const a = ($('#off_ann').value || '').trim();
+  try{ await api('/api/settings', {announcement: a}); toast('公告已保存'); }
+  catch(e){ toast(e.message); }
+}
+
+async function saveOffline(){
+  const p = ($('#off_pwd').value || '').trim();
+  if(p.length < 4) return toast('至少 4 位');
+  try{ await api('/api/settings', {offline_password: p}); toast('已保存'); loadAll(); }
   catch(e){ toast(e.message); }
 }
 
