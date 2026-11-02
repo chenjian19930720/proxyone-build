@@ -77,6 +77,8 @@ struct RemoteMe: Codable {
 struct RemoteConfig: Codable {
     var offline_password_sha256: String?
     var announcement: String?
+    var app_version: String?
+    var app_update_url: String?
     var server: String?
     var version: String?
 }
