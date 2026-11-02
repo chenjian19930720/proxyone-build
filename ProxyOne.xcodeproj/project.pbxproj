@@ -26,10 +26,12 @@
 			84316BCF800D8A150D20952A /* MobileConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71927EB3EBF56FCFFF5CA2AA /* MobileConfig.swift */; };
 			A92B0E719CE6A4D62B0A3569 /* SyncConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 645D527997787C4774ABCC3E /* SyncConfig.swift */; };
 			3C2382162059951DD8BE498D /* SimpleHTTP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D7A5061F3FFE2C8D19ED2E5 /* SimpleHTTP.swift */; };
+			AEA106EE788EC2396452BFA8 /* SocketUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09BD3355340474BE4AEBD0E8 /* SocketUtil.swift */; };
 			510EFA4BA72442E7D7B18078 /* ProxyConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = F77954F0A46EBDD73832CC46 /* ProxyConfig.swift */; };
 			60FDC00B17A17A2EC1D6DF56 /* MobileConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71927EB3EBF56FCFFF5CA2AA /* MobileConfig.swift */; };
 			6E1E483B468A6186AEB5021E /* SyncConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 645D527997787C4774ABCC3E /* SyncConfig.swift */; };
 			E508C23110C55D048FD503F4 /* SimpleHTTP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D7A5061F3FFE2C8D19ED2E5 /* SimpleHTTP.swift */; };
+			65BB336E572DC0A8051F2AAA /* SocketUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09BD3355340474BE4AEBD0E8 /* SocketUtil.swift */; };
 			17E4AA16FC3CBB8035C3991A /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C9E234FE27B4C414815A999 /* PacketTunnelProvider.swift */; };
 			469CCCBDCA14C16E872E6DF2 /* Tun2Socks.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED2EC274A0A99452AA99E622 /* Tun2Socks.swift */; };
 			1C006BC94362B9ACFAECACEC /* IPPacket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B10684CB845CADCE7043548 /* IPPacket.swift */; };
@@ -85,6 +87,7 @@
 			71927EB3EBF56FCFFF5CA2AA /* MobileConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileConfig.swift; sourceTree = "<group>"; };
 			645D527997787C4774ABCC3E /* SyncConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncConfig.swift; sourceTree = "<group>"; };
 			6D7A5061F3FFE2C8D19ED2E5 /* SimpleHTTP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimpleHTTP.swift; sourceTree = "<group>"; };
+			09BD3355340474BE4AEBD0E8 /* SocketUtil.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketUtil.swift; sourceTree = "<group>"; };
 			9C9E234FE27B4C414815A999 /* PacketTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketTunnelProvider.swift; sourceTree = "<group>"; };
 			ED2EC274A0A99452AA99E622 /* Tun2Socks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tun2Socks.swift; sourceTree = "<group>"; };
 			7B10684CB845CADCE7043548 /* IPPacket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IPPacket.swift; sourceTree = "<group>"; };
@@ -160,6 +163,7 @@
 					71927EB3EBF56FCFFF5CA2AA /* MobileConfig.swift */,
 					645D527997787C4774ABCC3E /* SyncConfig.swift */,
 					6D7A5061F3FFE2C8D19ED2E5 /* SimpleHTTP.swift */,
+					09BD3355340474BE4AEBD0E8 /* SocketUtil.swift */,
 				);
 				path = Shared;
 				sourceTree = "<group>";
@@ -333,6 +337,7 @@
 					84316BCF800D8A150D20952A /* MobileConfig.swift in Sources */,
 					A92B0E719CE6A4D62B0A3569 /* SyncConfig.swift in Sources */,
 					3C2382162059951DD8BE498D /* SimpleHTTP.swift in Sources */,
+					AEA106EE788EC2396452BFA8 /* SocketUtil.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 			};
@@ -351,6 +356,7 @@
 					60FDC00B17A17A2EC1D6DF56 /* MobileConfig.swift in Sources */,
 					6E1E483B468A6186AEB5021E /* SyncConfig.swift in Sources */,
 					E508C23110C55D048FD503F4 /* SimpleHTTP.swift in Sources */,
+					65BB336E572DC0A8051F2AAA /* SocketUtil.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 			};
