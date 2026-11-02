@@ -11,6 +11,13 @@ enum AppConfig {
         !defaultBackend.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
+    /// 离线模式的访问密码。只有知道这个密码的人才能进离线版。
+    /// 上线前改成你自己的密码；留空表示不校验（不建议）。
+    static let offlinePassword = "cx2024"
+
+    /// 离线密码是否启用
+    static var offlineLockEnabled: Bool { !offlinePassword.isEmpty }
+
     /// 展示用的服务器标识（去掉 http:// 和端口）
     static var backendLabel: String {
         var s = defaultBackend
