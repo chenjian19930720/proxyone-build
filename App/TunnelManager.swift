@@ -142,6 +142,10 @@ final class TunnelManager: ObservableObject {
             lastError = "先在「线路」里填好 SOCKS5 服务器地址和端口"
             return
         }
+        guard server.proto == "socks5" else {
+            lastError = "\(server.proto.uppercased()) 协议暂未支持，当前版本只支持 SOCKS5"
+            return
+        }
         lastError = nil
         do {
             let manager = try await ensureManager(server: server)
