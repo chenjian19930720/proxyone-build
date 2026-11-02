@@ -15,6 +15,14 @@ final class Tun2Socks {
     private var timer: DispatchSourceTimer?
     private var blockedAddresses: Set<UInt32> = []
     private let queueKey = DispatchSpecificKey<UInt8>()
+    private var bytesUp: UInt64 = 0
+    private var bytesDown: UInt64 = 0
+
+    /// 累计流量（上行=手机发出，下行=服务器回给手机）
+    var traffic: (up: UInt64, down: UInt64) {
+        if DispatchQueue.getSpecific(key: queueKey) != nil { return (bytesUp, bytesDown) }
+        return queue.sync { (bytesUp, bytesDown) }
+    }
 
     init(flow: NEPacketTunnelFlow, server: ProxyServer) {
         self.flow = flow
@@ -69,6 +77,7 @@ final class Tun2Socks {
 
     // MARK: 分发
     private func handle(_ bytes: [UInt8]) {
+        bytesUp &+= UInt64(bytes.count)
         guard let packet = PacketParser.parseIPv4(bytes) else { return }
         if blockedAddresses.contains(packet.dstIP) { return }
         if IPUtil.isMulticast(packet.dstIP) || IPUtil.isBroadcast(packet.dstIP) { return }
@@ -117,6 +126,7 @@ final class Tun2Socks {
     // MARK: 写包
     func writeToTun(_ packets: [[UInt8]]) {
         guard !packets.isEmpty else { return }
+        for p in packets { bytesDown &+= UInt64(p.count) }
         let datas = packets.map { Data($0) }
         flow.writePackets(datas, withProtocols: datas.map { _ in NSNumber(value: AF_INET) })
     }
