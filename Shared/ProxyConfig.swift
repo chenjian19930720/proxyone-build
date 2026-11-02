@@ -13,6 +13,8 @@ struct ProxyServer: Codable, Identifiable, Hashable {
     var group: String
     var latency: Int?
     var isRemote: Bool
+    /// socks5 / http / trojan / ss —— 目前只有 socks5 能真正连接
+    var proto: String
 
     init(id: UUID = UUID(),
          name: String = "新线路",
@@ -23,7 +25,8 @@ struct ProxyServer: Codable, Identifiable, Hashable {
          remark: String = "",
          group: String = "",
          latency: Int? = nil,
-         isRemote: Bool = false) {
+         isRemote: Bool = false,
+         proto: String = "socks5") {
         self.id = id
         self.name = name
         self.host = host
@@ -34,10 +37,11 @@ struct ProxyServer: Codable, Identifiable, Hashable {
         self.group = group
         self.latency = latency
         self.isRemote = isRemote
+        self.proto = proto
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, host, port, username, password, remark, group, latency, isRemote
+        case id, name, host, port, username, password, remark, group, latency, isRemote, proto
     }
 
     init(from decoder: Decoder) throws {
@@ -52,6 +56,7 @@ struct ProxyServer: Codable, Identifiable, Hashable {
         group = try c.decodeIfPresent(String.self, forKey: .group) ?? ""
         latency = try c.decodeIfPresent(Int.self, forKey: .latency)
         isRemote = try c.decodeIfPresent(Bool.self, forKey: .isRemote) ?? false
+        proto = try c.decodeIfPresent(String.self, forKey: .proto) ?? "socks5"
     }
 
     var isValid: Bool {
