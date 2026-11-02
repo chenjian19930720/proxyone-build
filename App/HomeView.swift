@@ -9,6 +9,10 @@ struct HomeView: View {
     @State private var loadingIP = false
     @State private var showDebug = false
     @State private var alwaysOnLocal = SharedStore.alwaysOn
+    @State private var now = Date()
+    @State private var announcementText = SharedStore.announcement
+    private let statsTimer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
+    private let clockTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ZStack {
@@ -17,9 +21,12 @@ struct HomeView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 18) {
                     brandHeader
+                    if !announcementText.isEmpty { announcementBar }
                     ipHeader
                     powerButton
+                    smartConnectRow
                     statusChip
+                    if tunnel.isOn { trafficBar }
                     alwaysOnCard
                     currentCard
                     quickNodes
@@ -46,6 +53,109 @@ struct HomeView: View {
         }
         .onChange(of: tunnel.alwaysOn) { v in
             alwaysOnLocal = v
+        }
+        .onReceive(statsTimer) { _ in
+            if tunnel.isOn { Task { await tunnel.refreshStats() } }
+        }
+        .onReceive(clockTimer) { _ in
+            now = Date()
+            announcementText = SharedStore.announcement
+        }
+    }
+
+    // MARK: 公告
+    private var announcementBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "megaphone.fill")
+                .font(.system(size: 11))
+                .foregroundColor(Theme.warn)
+            Text(announcementText)
+                .font(.system(size: 11.5))
+                .foregroundColor(.white.opacity(0.75))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.warn.opacity(0.10)))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.warn.opacity(0.18), lineWidth: 1))
+    }
+
+    // MARK: 智能连接
+    private var smartConnectRow: some View {
+        Button {
+            Task { await smartConnect() }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "wand.and.stars")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("智能连接最快的线路")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .foregroundColor(Theme.accent)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .background(Capsule().fill(Theme.accent.opacity(0.12)))
+        }
+        .buttonStyle(.plain)
+        .disabled(tunnel.isBusy || tunnel.servers.isEmpty)
+        .opacity(tunnel.servers.isEmpty ? 0.35 : 1)
+    }
+
+    // MARK: 时长与流量
+    private var trafficBar: some View {
+        HStack(spacing: 18) {
+            statItem(icon: "clock", value: connectedDuration, label: "时长")
+            statItem(icon: "arrow.up", value: human(tunnel.bytesUp), label: "上传")
+            statItem(icon: "arrow.down", value: human(tunnel.bytesDown), label: "下载")
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 11)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Theme.card))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.line, lineWidth: 1))
+    }
+
+    private func statItem(icon: String, value: String, label: String) -> some View {
+        VStack(spacing: 3) {
+            HStack(spacing: 4) {
+                Image(systemName: icon).font(.system(size: 9))
+                Text(value)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+            }
+            .foregroundColor(.white.opacity(0.85))
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundColor(.white.opacity(0.28))
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var connectedDuration: String {
+        guard let start = tunnel.connectedSince else { return "00:00" }
+        let s = Int(now.timeIntervalSince(start))
+        let h = s / 3600, m = (s % 3600) / 60, sec = s % 60
+        return h > 0 ? String(format: "%d:%02d:%02d", h, m, sec)
+                     : String(format: "%02d:%02d", m, sec)
+    }
+
+    private func human(_ bytes: UInt64) -> String {
+        let kb = Double(bytes) / 1024
+        if kb < 1024 { return String(format: "%.0fK", kb) }
+        let mb = kb / 1024
+        if mb < 1024 { return String(format: "%.1fM", mb) }
+        return String(format: "%.2fG", mb / 1024)
+    }
+
+    private func smartConnect() async {
+        await tunnel.refreshLatencies()
+        guard let best = tunnel.fastestNodes(limit: 1).first else { return }
+        if tunnel.isOn {
+            await tunnel.activate(best)
+        } else {
+            tunnel.selectedID = best.id
+            await tunnel.start()
         }
     }
 
