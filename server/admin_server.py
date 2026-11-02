@@ -61,6 +61,10 @@ CREATE TABLE IF NOT EXISTS nodes (
     enabled  INTEGER DEFAULT 1,
     updated  INTEGER DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
 CREATE INDEX IF NOT EXISTS idx_nodes_grp ON nodes(grp);
 """
@@ -77,8 +81,26 @@ def db():
 def init_db():
     with closing(db()) as c:
         c.executescript(SCHEMA)
+        # 默认离线密码
+        row = c.execute("SELECT value FROM settings WHERE key='offline_password'").fetchone()
+        if not row:
+            c.execute("INSERT INTO settings(key,value) VALUES(?,?)",
+                      ("offline_password", "chenjian520"))
         c.commit()
     migrate_legacy()
+
+
+def get_setting(key, default=""):
+    with closing(db()) as c:
+        r = c.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+        return r["value"] if r else default
+
+
+def set_setting(key, value):
+    with WRITE_LOCK, closing(db()) as c:
+        c.execute("INSERT INTO settings(key,value) VALUES(?,?) "
+                  "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
+        c.commit()
 
 
 def migrate_legacy():
@@ -368,6 +390,16 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"ok": True, "version": VERSION, "server": "待续IP系统",
                                    "storage": "sqlite"})
 
+        # App 启动时拉配置（公开，密码只给 hash）
+        if path == "/api/config":
+            pwd = get_setting("offline_password", "chenjian520")
+            return self.send_json({
+                "offline_password_sha256": hashlib.sha256(pwd.encode()).hexdigest(),
+                "announcement": get_setting("announcement", ""),
+                "server": "待续IP系统",
+                "version": VERSION,
+            })
+
         role, user = self.auth()
 
         if path == "/api/nodes":
@@ -398,6 +430,11 @@ class Handler(BaseHTTPRequestHandler):
                                    "enabled": user.get("enabled", True), "active": ok,
                                    "group": user.get("group", ""), "reason": why,
                                    "server": "待续IP系统"})
+
+        if path == "/api/settings":
+            if role != "admin":
+                return self.send_json({"error": "unauthorized"}, 401)
+            return self.send_json({"offline_password": get_setting("offline_password", "")})
 
         self.send_json({"error": "not found"}, 404)
 
@@ -492,6 +529,23 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"ok": True, "added": added})
 
         # ---- 用户管理
+        # ---- 设置（离线密码 / 公告）
+        if path == "/api/settings":
+            if role != "admin":
+                return self.send_json({"error": "没有权限"}, 403)
+            pwd = (data.get("offline_password") or "").strip()
+            if pwd:
+                if len(pwd) < 4:
+                    return self.send_json({"error": "密码至少 4 位"}, 400)
+                set_setting("offline_password", pwd)
+            if "announcement" in data:
+                set_setting("announcement", (data.get("announcement") or "").strip())
+            return self.send_json({
+                "ok": True,
+                "offline_password": get_setting("offline_password", ""),
+                "announcement": get_setting("announcement", ""),
+            })
+
         if path == "/api/users/approve":
             if role != "admin":
                 return self.send_json({"error": "没有权限"}, 403)
