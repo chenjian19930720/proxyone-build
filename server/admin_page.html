@@ -108,12 +108,33 @@ function mainPage(){
     <div style="flex:1"></div>
     <div class="tab" onclick="logout()">退出</div>
   </div>
+  <div id="dash" style="margin-bottom:16px"></div>
   <div id="pane"></div>`;
 }
 
 function switchTab(t){ tab=t; render(); }
 
+function dashHtml(s){
+  const card=(v,l,c)=>`<div style="flex:1;min-width:92px;background:#11151f;border:1px solid rgba(255,255,255,.07);border-radius:13px;padding:13px 14px">
+    <div style="font-size:21px;font-weight:700;color:${c};font-variant-numeric:tabular-nums">${v}</div>
+    <div style="font-size:10.5px;color:#5d6a85;margin-top:3px">${l}</div></div>`;
+  const cities = Object.entries(s.cities||{}).map(([k,v])=>k+' '+v).join(' · ');
+  return `<div style="display:flex;gap:9px;flex-wrap:wrap">
+    ${card(s.users_total,'账号总数','#e8ecf5')}
+    ${card(s.users_active,'正常','#34d399')}
+    ${card(s.users_pending,'待审核','#ffb020')}
+    ${card(s.users_expired,'已到期','#ff6b6b')}
+    ${card(s.nodes_total,'线路','#4c90ff')}
+    ${card(s.today_new,'今日新增','#8b5fff')}
+  </div>` + (cities ? `<div class="kv" style="margin-top:8px"><span>城市分布：${esc(cities)}</span></div>` : '');
+}
+
 async function loadAll(){
+  try{
+    const s = await api('/api/stats');
+    const dash = $('#dash');
+    if (dash) dash.innerHTML = dashHtml(s);
+  }catch(e){}
   try{
     if(tab==='nodes'){
       const d = await api('/api/nodes'); nodes = d.nodes||[];
@@ -123,7 +144,8 @@ async function loadAll(){
       $('#pane').innerHTML = usersPane();
     }else{
       const d = await api('/api/settings');
-      $('#pane').innerHTML = settingsPane(d.offline_password || '', d.announcement || '');
+      $('#pane').innerHTML = settingsPane(d.offline_password || '', d.announcement || '',
+                                          d.app_version || '1.0', d.app_update_url || '');
     }
   }catch(e){ toast(e.message); }
 }
@@ -190,7 +212,10 @@ function usersPane(){
       <input id="u_remark" placeholder="备注 / 联系方式">
     </div>
     <div style="height:14px"></div>
-    <button onclick="addUser()">直接开通账号</button>
+    <div class="row">
+      <button onclick="addUser()">直接开通账号</button>
+      <button class="ghost" onclick="bulkUsers()">批量开通</button>
+    </div>
     <div class="kv"><span>共 ${users.length}</span>
       <span class="warn">待审核 ${pending}</span>
       <span>正常 ${users.filter(u=>(u.status||'active')==='active'&&u.enabled).length}</span>
@@ -238,7 +263,7 @@ async function approve(id){
   catch(e){ toast(e.message); }
 }
 
-function settingsPane(current, announcement){
+function settingsPane(current, announcement, appVer, updateUrl){
   return `<div class="card" style="margin-bottom:16px">
     <div class="head"><b style="font-size:13.5px">公告</b>
       <span class="muted">App 首页顶部显示，留空即关闭</span></div>
@@ -247,8 +272,17 @@ function settingsPane(current, announcement){
     <button onclick="saveAnnouncement()">保存公告</button>
   </div>
   <div class="card" style="margin-bottom:16px">
+    <div class="head"><b style="font-size:13.5px">版本更新</b>
+      <span class="muted">App 版本低于这里就弹更新提示</span></div>
+    <div class="row">
+      <input id="app_ver" placeholder="最新版本，如 1.1" value="${esc(appVer||'1.0')}">
+      <input id="app_url" placeholder="下载地址（可空）" value="${esc(updateUrl||'')}">
+      <button onclick="saveVersion()">保存</button>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:16px">
     <div class="head"><b style="font-size:13.5px">离线版访问密码</b>
-      <span class="muted">改完后 App 联网自动生效，无需重新打包</span></div>
+      <span class="muted">目前 App 已关闭离线入口，此处仅保留</span></div>
     <div class="row">
       <input id="off_pwd" placeholder="新的离线密码" value="${esc(current)}">
       <button onclick="saveOffline()">保存</button>
@@ -258,12 +292,18 @@ function settingsPane(current, announcement){
   <div class="card">
     <b style="font-size:13px">说明</b>
     <p class="muted" style="margin-top:10px;line-height:2">
-      · 离线密码：用户在 App 登录页点「离线模式」时需要输入<br>
-      · 公告：写在 App 首页顶部，客户每次打开都能看到<br>
-      · 两项都是 App 联网时自动拉取，改完不用重新打包<br>
-      · 客户端内置了兜底密码，服务器完全连不上时用它
+      · 公告与版本号：App 联网时自动拉取，改完不用重新打包<br>
+      · 版本更新：客户看到提示后可点下载地址升级<br>
+      · 所有设置保存后立即生效
     </p>
   </div>`;
+}
+
+async function saveVersion(){
+  const v = ($('#app_ver').value || '').trim();
+  const u = ($('#app_url').value || '').trim();
+  try{ await api('/api/settings', {app_version: v, app_update_url: u}); toast('已保存'); }
+  catch(e){ toast(e.message); }
 }
 
 async function saveAnnouncement(){
@@ -312,8 +352,18 @@ async function delNode(id){
   try{ await api('/api/nodes/delete',{id}); toast('已删除'); loadAll(); }catch(e){ toast(e.message); }
 }
 
-async function addUser(){
-  const username=$('#u_name').value.trim(), password=$('#u_pass').value;
+async function bulkUsers(){
+  const text = prompt('一行一个账号，格式：\n账号,密码,天数,城市\n例如：\nkf001,pass123456,30,杭州\nkf002,pass123456,30,上海');
+  if(!text) return;
+  try{
+    const d = await api('/api/users/bulk', {text});
+    let msg = '开通 ' + d.added + ' 个';
+    if(d.skipped && d.skipped.length) msg += '，跳过 ' + d.skipped.length + ' 个';
+    toast(msg); loadAll();
+  }catch(e){ toast(e.message); }
+}
+
+async function addUser(){  const username=$('#u_name').value.trim(), password=$('#u_pass').value;
   const days=$('#u_days').value.trim();
   if(!username||!password) return toast('账号和密码必填');
   const body={user:{username,password,days:days?parseInt(days):0,
