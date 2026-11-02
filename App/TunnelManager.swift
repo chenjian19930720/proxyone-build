@@ -370,38 +370,37 @@ final class TunnelManager: ObservableObject {
     }
 
     private func traceViaCloudflare() async -> String? {
-        guard let url = URL(string: "http://1.1.1.1/cdn-cgi/trace") else { return nil }
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 7
-        req.cachePolicy = .reloadIgnoringLocalCacheData
-        do {
-            let (data, _) = try await URLSession.shared.data(for: req)
-            guard let text = String(data: data, encoding: .utf8) else { return nil }
-            for line in text.split(separator: "\n") where line.hasPrefix("ip=") {
-                let ip = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
-                if !ip.isEmpty && ip != "unknown" { return ip }
+        await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let r = try SimpleHTTP.request("http://1.1.1.1/cdn-cgi/trace", timeout: 7)
+                    let text = String(data: r.body, encoding: .utf8) ?? ""
+                    for line in text.split(separator: "\n") where line.hasPrefix("ip=") {
+                        let ip = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                        cont.resume(returning: ip.isEmpty ? nil : ip)
+                        return
+                    }
+                } catch {}
+                cont.resume(returning: nil)
             }
-        } catch {
-            return nil
         }
-        return nil
     }
 
     private func ipifyIP() async -> String? {
-        guard let url = URL(string: "http://api.ipify.org") else { return nil }
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 8
-        req.cachePolicy = .reloadIgnoringLocalCacheData
-        do {
-            let (data, _) = try await URLSession.shared.data(for: req)
-            let s = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-            return (s?.isEmpty == false) ? s : nil
-        } catch {
-            return nil
+        await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let r = try SimpleHTTP.request("http://api.ipify.org", timeout: 8)
+                    let s = String(data: r.body, encoding: .utf8)?
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    cont.resume(returning: (s?.isEmpty == false) ? s : nil)
+                } catch {
+                    cont.resume(returning: nil)
+                }
+            }
         }
     }
 
-    /// 完整 SOCKS5 握手探测，能区分是网络问题还是认证问题
     func probe(_ server: ProxyServer) async -> ProbeResult {
         guard server.isValid else {
             return ProbeResult(ok: false, ms: 0, detail: "地址或端口为空")
