@@ -402,6 +402,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({
                 "offline_password_sha256": hashlib.sha256(pwd.encode()).hexdigest(),
                 "announcement": get_setting("announcement", ""),
+                "app_version": get_setting("app_version", "1.0"),
+                "app_update_url": get_setting("app_update_url", ""),
                 "server": "待续IP系统",
                 "version": VERSION,
             })
@@ -440,7 +442,43 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/settings":
             if role != "admin":
                 return self.send_json({"error": "unauthorized"}, 401)
-            return self.send_json({"offline_password": get_setting("offline_password", "")})
+            return self.send_json({"offline_password": get_setting("offline_password", ""),
+                                   "announcement": get_setting("announcement", ""),
+                                   "app_version": get_setting("app_version", "1.0"),
+                                   "app_update_url": get_setting("app_update_url", "")})
+
+        # ---- 数据看板
+        if path == "/api/stats":
+            if role != "admin":
+                return self.send_json({"error": "unauthorized"}, 401)
+            now = time.time()
+            lt = time.localtime()
+            today_start = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, -1))
+            with closing(db()) as c:
+                users = [dict(r) for r in c.execute("SELECT * FROM users")]
+                nodes = [dict(r) for r in c.execute("SELECT * FROM nodes")]
+
+            def is_active(u):
+                st = u.get("status") or "active"
+                exp = u.get("expires") or 0
+                return st == "active" and u.get("enabled") and (not exp or exp > now)
+
+            cities = {}
+            for n in nodes:
+                g = n.get("grp") or "默认"
+                cities[g] = cities.get(g, 0) + 1
+
+            return self.send_json({
+                "users_total": len(users),
+                "users_active": len([u for u in users if is_active(u)]),
+                "users_pending": len([u for u in users if (u.get("status") or "active") == "pending"]),
+                "users_expired": len([u for u in users if (u.get("expires") or 0) and u["expires"] <= now]),
+                "users_disabled": len([u for u in users if not u.get("enabled")]),
+                "today_new": len([u for u in users if (u.get("created") or 0) >= today_start]),
+                "nodes_total": len(nodes),
+                "nodes_enabled": len([n for n in nodes if n.get("enabled")]),
+                "cities": cities,
+            })
 
         self.send_json({"error": "not found"}, 404)
 
@@ -547,11 +585,55 @@ class Handler(BaseHTTPRequestHandler):
                 set_setting("offline_password", pwd)
             if "announcement" in data:
                 set_setting("announcement", (data.get("announcement") or "").strip())
+            if "app_version" in data:
+                set_setting("app_version", (data.get("app_version") or "1.0").strip())
+            if "app_update_url" in data:
+                set_setting("app_update_url", (data.get("app_update_url") or "").strip())
             return self.send_json({
                 "ok": True,
                 "offline_password": get_setting("offline_password", ""),
                 "announcement": get_setting("announcement", ""),
+                "app_version": get_setting("app_version", "1.0"),
+                "app_update_url": get_setting("app_update_url", ""),
             })
+
+        # ---- 批量开通账号
+        if path == "/api/users/bulk":
+            if role != "admin":
+                return self.send_json({"error": "没有权限"}, 403)
+            text = data.get("text") or ""
+            added, skipped = 0, []
+            for raw in text.splitlines():
+                line = raw.strip().replace("，", ",").replace("|", ",").replace("\t", ",")
+                if not line or line.startswith("#"):
+                    continue
+                parts = [x.strip() for x in line.split(",")]
+                if len(parts) < 2:
+                    skipped.append(raw.strip()[:24])
+                    continue
+                username, password = parts[0], parts[1]
+                try:
+                    days = int(parts[2]) if len(parts) > 2 and parts[2] else 30
+                except ValueError:
+                    days = 30
+                city = parts[3] if len(parts) > 3 else ""
+                if len(username) < 3 or len(password) < 6:
+                    skipped.append(username or raw.strip()[:16])
+                    continue
+                if get_user_by_name(username):
+                    skipped.append(username + "(已存在)")
+                    continue
+                rec = {"id": secrets.token_hex(8), "username": username,
+                       "pwd": hash_password(password), "plain": password,
+                       "expires": int(time.time() + days * 86400) if days else 0,
+                       "enabled": True, "status": "active", "group": city,
+                       "remark": "", "created": int(time.time())}
+                try:
+                    insert_user(rec)
+                    added += 1
+                except sqlite3.IntegrityError:
+                    skipped.append(username + "(重复)")
+            return self.send_json({"ok": True, "added": added, "skipped": skipped})
 
         if path == "/api/users/approve":
             if role != "admin":
