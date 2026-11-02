@@ -73,6 +73,13 @@ struct RemoteMe: Codable {
     var group: String?
 }
 
+struct RemoteConfig: Codable {
+    var offline_password_sha256: String?
+    var announcement: String?
+    var server: String?
+    var version: String?
+}
+
 // MARK: - 同步服务
 
 enum SyncError: LocalizedError {
@@ -165,6 +172,25 @@ enum SyncService {
             return msg
         }
         return "提交成功，等待管理员开通"
+    }
+
+    /// 拉服务器配置（公开接口，不需要登录），用于同步离线密码
+    static func fetchConfig(base: String) async throws -> RemoteConfig {
+        guard let root = normalize(base) else { throw SyncError.badURL }
+        let url = root.appendingPathComponent("api/config")
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 8
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard (resp as? HTTPURLResponse)?.statusCode == 200 else {
+                throw SyncError.http((resp as? HTTPURLResponse)?.statusCode ?? 0, "配置读取失败")
+            }
+            return (try? JSONDecoder().decode(RemoteConfig.self, from: data)) ?? RemoteConfig()
+        } catch let e as SyncError {
+            throw e
+        } catch {
+            throw SyncError.network(error.localizedDescription)
+        }
     }
 
     static func fetchMe(base: String, token: String) async throws -> RemoteMe {        guard let root = normalize(base) else { throw SyncError.badURL }
