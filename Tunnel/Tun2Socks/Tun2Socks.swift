@@ -17,11 +17,29 @@ final class Tun2Socks {
     private let queueKey = DispatchSpecificKey<UInt8>()
     private var bytesUp: UInt64 = 0
     private var bytesDown: UInt64 = 0
+    /// 最近经过隧道的目标（最多 60 条，新的在前）
+    private var targets: [(host: String, port: UInt16, time: Date)] = []
 
     /// 累计流量（上行=手机发出，下行=服务器回给手机）
     var traffic: (up: UInt64, down: UInt64) {
         if DispatchQueue.getSpecific(key: queueKey) != nil { return (bytesUp, bytesDown) }
         return queue.sync { (bytesUp, bytesDown) }
+    }
+
+    /// 最近连接过的目标，用来确认“是不是全局代理”
+    var recentTargets: [(host: String, port: UInt16, time: Date)] {
+        if DispatchQueue.getSpecific(key: queueKey) != nil { return targets }
+        return queue.sync { targets }
+    }
+
+    private func recordTarget(_ host: String, _ port: UInt16) {
+        let now = Date()
+        if let i = targets.firstIndex(where: { $0.host == host && $0.port == port }) {
+            targets[i].time = now
+        } else {
+            targets.insert((host, port, now), at: 0)
+            if targets.count > 60 { targets.removeLast(targets.count - 60) }
+        }
     }
 
     init(flow: NEPacketTunnelFlow, server: ProxyServer) {
@@ -114,6 +132,7 @@ final class Tun2Socks {
         // 新连接
         if tcp.flags & TCPFlags.syn != 0 && tcp.flags & TCPFlags.ack == 0 {
             let dstName = IPUtil.addrToString(packet.dstIP)
+            recordTarget(dstName, tcp.dstPort)
             let relay = TCPRelay(engine: self, queue: queue,
                                  clientIP: packet.srcIP, clientPort: tcp.srcPort,
                                  dstHost: dstName, dstIP: packet.dstIP, dstPort: tcp.dstPort,
@@ -153,5 +172,14 @@ final class Tun2Socks {
     var activeConnections: Int {
         if DispatchQueue.getSpecific(key: queueKey) != nil { return relays.count }
         return queue.sync { relays.count }
+    }
+
+    /// 供扩展上报给 App 的文本列表
+    var targetsText: String {
+        let list = recentTargets
+        guard !list.isEmpty else { return "" }
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        return list.map { "\(f.string(from: $0.time))  \($0.host):\($0.port)" }.joined(separator: "\n")
     }
 }
