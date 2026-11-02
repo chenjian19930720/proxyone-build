@@ -20,7 +20,10 @@ final class TunnelManager: ObservableObject {
     @Published var bytesUp: UInt64 = 0
     @Published var bytesDown: UInt64 = 0
     @Published var lastIPError: String = ""
+    @Published var exitIPLocation: String = ""
     @Published var recentTargets: String = ""
+    @Published var statsError: String = ""
+    @Published var latencyRefreshing = false
     @Published var alwaysOn: Bool = SharedStore.alwaysOn
     @Published var networkUp: Bool = true
     @Published var syncConfig: SyncConfig = SharedStore.syncConfig
@@ -136,10 +139,12 @@ final class TunnelManager: ObservableObject {
 
     // MARK: 一键开 / 关
     func toggle() async {
+        guard !isBusy else { return }        // 连接/断开过程中忽略重复点击
         if isOn { await stop() } else { await start() }
     }
 
     func start() async {
+        guard !isBusy else { return }
         guard let server = currentServer, server.isValid else {
             lastError = "先在「线路」里填好 SOCKS5 服务器地址和端口"
             return
@@ -158,10 +163,11 @@ final class TunnelManager: ObservableObject {
         }
     }
 
-    func stop() async {
+    func stop(preserveAlwaysOn: Bool = false) async {
         guard let manager else { return }
-        // 手动断开等同于关掉「强制保持连接」，否则系统会立刻把隧道拉起来
-        if alwaysOn {
+        // 手动断开等同于关掉「强制保持连接」；
+        // 但切换线路时不能关，否则开关会自己弹回去。
+        if alwaysOn && !preserveAlwaysOn {
             alwaysOn = false
             SharedStore.alwaysOn = false
             manager.isOnDemandEnabled = false
@@ -231,20 +237,63 @@ final class TunnelManager: ObservableObject {
         guard let session = manager?.connection as? NETunnelProviderSession,
               status == .connected else {
             activeConnections = 0
+            statsError = status == .connected ? "拿不到会话" : ""
             return
         }
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            // 超时保护：provider 没响应时不要让协程永远挂着
+            let done = NSLock()
+            var finished = false
+            func finish() {
+                done.lock()
+                if finished { done.unlock(); return }
+                finished = true
+                done.unlock()
+                cont.resume()
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
+                done.lock()
+                let already = finished
+                done.unlock()
+                if !already {
+                    Task { @MainActor in self.statsError = "扩展 5 秒未响应" }
+                }
+                finish()
+            }
             do {
                 try session.sendProviderMessage(Data("stats".utf8)) { data in
                     if let data,
                        let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                         Task { @MainActor in
                             self.activeConnections = obj["active"] as? Int ?? 0
-                            self.tunnelLog = obj["log"] as? String ?? ""
                             self.bytesUp = (obj["up"] as? NSNumber)?.uint64Value ?? 0
                             self.bytesDown = (obj["down"] as? NSNumber)?.uint64Value ?? 0
                             self.recentTargets = obj["targets"] as? String ?? ""
+                            self.statsError = ""
                         }
+                    } else {
+                        Task { @MainActor in self.statsError = "扩展没有返回数据" }
+                    }
+                    finish()
+                }
+            } catch {
+                Task { @MainActor in self.statsError = error.localizedDescription }
+                finish()
+            }
+        }
+    }
+
+    /// 单独拉日志（日志较大，不跟流量一起传）
+    func pullLog() async {
+        guard let session = manager?.connection as? NETunnelProviderSession,
+              status == .connected else { return }
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            do {
+                try session.sendProviderMessage(Data("log".utf8)) { data in
+                    if let data,
+                       let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let log = obj["log"] as? String {
+                        Task { @MainActor in self.tunnelLog = log }
                     }
                     cont.resume()
                 }
@@ -274,10 +323,24 @@ final class TunnelManager: ObservableObject {
                 let fd = socket(info.pointee.ai_family, info.pointee.ai_socktype, info.pointee.ai_protocol)
                 guard fd >= 0 else { cont.resume(returning: false); return }
                 defer { close(fd) }
-                var tv = timeval(tv_sec: 3, tv_usec: 0)
-                setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+
+                // 非阻塞 connect + poll：SO_SNDTIMEO 管不住 connect，
+                // 老写法在不通的线路上会卡 75 秒，整个刷新就假死了。
+                let flags = fcntl(fd, F_GETFL, 0)
+                _ = fcntl(fd, F_SETFL, flags | O_NONBLOCK)
+
                 let rc = connect(fd, info.pointee.ai_addr, info.pointee.ai_addrlen)
-                cont.resume(returning: rc == 0)
+                if rc == 0 { cont.resume(returning: true); return }
+                guard errno == EINPROGRESS else { cont.resume(returning: false); return }
+
+                var pfd = pollfd(fd: fd, events: Int16(POLLOUT), revents: 0)
+                let pr = poll(&pfd, 1, 2500)          // 硬超时 2.5 秒
+                guard pr > 0 else { cont.resume(returning: false); return }
+
+                var soErr: Int32 = 0
+                var len = socklen_t(MemoryLayout<Int32>.size)
+                getsockopt(fd, SOL_SOCKET, SO_ERROR, &soErr, &len)
+                cont.resume(returning: soErr == 0)
             }
         }
         guard ok else { return nil }
@@ -312,13 +375,17 @@ final class TunnelManager: ObservableObject {
         selectedID = server.id
         persistServers()
         guard wasOn else { return }
-        await stop()
-        try? await Task.sleep(nanoseconds: 500_000_000)
+        await stop(preserveAlwaysOn: true)
+        try? await Task.sleep(nanoseconds: 400_000_000)
         await start()
     }
 
     /// 并发测所有线路的握手延迟
     func refreshLatencies() async {
+        guard !latencyRefreshing else { return }      // 防重入：连点刷新不会叠任务
+        latencyRefreshing = true
+        defer { latencyRefreshing = false }
+
         let snapshot = servers
         guard !snapshot.isEmpty else { return }
         var results: [UUID: Int] = [:]
@@ -330,9 +397,15 @@ final class TunnelManager: ObservableObject {
                 if let ms { results[id] = ms }
             }
         }
-        for i in servers.indices {
-            servers[i].latency = results[servers[i].id]
+        // 不用索引遍历：await 期间 servers 可能被同步逻辑替换，按 id 回写最安全
+        var updated = servers
+        for i in updated.indices {
+            let id = updated[i].id
+            if snapshot.contains(where: { $0.id == id }) {
+                updated[i].latency = results[id]
+            }
         }
+        servers = updated
         persistServers()
     }
 
@@ -366,15 +439,57 @@ final class TunnelManager: ObservableObject {
 
     /// 走隧道（或直连）请求出口 IP，失败时返回具体原因
     func checkExitIP() async -> String {
-        let a = await queryPlainIP()
-        if let ip = a.0 { lastIPError = ""; return ip }
-        let b = await queryCNIP()
-        if let ip = b.0 { lastIPError = ""; return ip }
-        lastIPError = a.1.isEmpty ? b.1 : a.1
+        // 先用 myip.ipip.net：它同时给出 IP 和归属地
+        let a = await queryCNIP()
+        if let ip = a.0 {
+            exitIPLocation = a.1
+            lastIPError = ""
+            return ip
+        }
+        // 兜底用纯 IP 接口，归属地留空
+        let b = await queryPlainIP()
+        if let ip = b.0 {
+            exitIPLocation = ""
+            lastIPError = ""
+            return ip
+        }
+        lastIPError = a.2.isEmpty ? b.1 : a.2
         return "获取失败"
     }
 
-    /// ip.3322.net：直接返回纯 IP 文本，最省事
+    /// myip.ipip.net：返回「当前 IP：x.x.x.x 来自于：中国 广东 广州 电信」
+    private func queryCNIP() async -> (String?, String, String) {
+        await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let r = try SimpleHTTP.request("http://myip.ipip.net", timeout: 10)
+                    let text = String(data: r.body, encoding: .utf8) ?? ""
+
+                    var ip: String?
+                    for token in text.split(whereSeparator: { " ：:，,　\t\n".contains($0) }) {
+                        let t = String(token)
+                        if Self.isIPv4(t) { ip = t; break }
+                    }
+                    guard let found = ip else {
+                        cont.resume(returning: (nil, "",
+                                                "myip.ipip.net 未找到 IP（HTTP \(r.status)）"))
+                        return
+                    }
+                    var loc = ""
+                    if let rng = text.range(of: "来自于：") {
+                        loc = String(text[rng.upperBound...])
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                            .replacingOccurrences(of: "  ", with: " ")
+                    }
+                    cont.resume(returning: (found, loc, ""))
+                } catch {
+                    cont.resume(returning: (nil, "", "myip.ipip.net 失败：\(error.localizedDescription)"))
+                }
+            }
+        }
+    }
+
+    /// ip.3322.net：直接返回纯 IP 文本（没有归属地）
     private func queryPlainIP() async -> (String?, String) {
         await withCheckedContinuation { cont in
             DispatchQueue.global(qos: .userInitiated).async {
@@ -386,25 +501,6 @@ final class TunnelManager: ObservableObject {
                     cont.resume(returning: (nil, "ip.3322.net 异常 HTTP \(r.status)：\(s.prefix(40))"))
                 } catch {
                     cont.resume(returning: (nil, "ip.3322.net 失败：\(error.localizedDescription)"))
-                }
-            }
-        }
-    }
-
-    /// myip.ipip.net：返回「当前 IP：x.x.x.x 来自于：…」，从文字里抠 IP
-    private func queryCNIP() async -> (String?, String) {
-        await withCheckedContinuation { cont in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    let r = try SimpleHTTP.request("http://myip.ipip.net", timeout: 10)
-                    let text = String(data: r.body, encoding: .utf8) ?? ""
-                    for token in text.split(whereSeparator: { " ：:，,　\t\n".contains($0) }) {
-                        let t = String(token)
-                        if Self.isIPv4(t) { cont.resume(returning: (t, "")); return }
-                    }
-                    cont.resume(returning: (nil, "myip.ipip.net 未找到 IP（HTTP \(r.status)）"))
-                } catch {
-                    cont.resume(returning: (nil, "myip.ipip.net 失败：\(error.localizedDescription)"))
                 }
             }
         }
@@ -452,9 +548,12 @@ final class TunnelManager: ObservableObject {
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
 
         let t0 = Date()
-        guard connect(fd, info.pointee.ai_addr, info.pointee.ai_addrlen) == 0 else {
+        guard SocketUtil.connectWithTimeout(fd: fd,
+                                            addr: info.pointee.ai_addr,
+                                            len: info.pointee.ai_addrlen,
+                                            timeoutMs: 5000) else {
             return ProbeResult(ok: false, ms: 0,
-                               detail: "TCP 连不上 \(server.endpoint)：\(String(cString: strerror(errno)))")
+                               detail: "TCP 连不上 \(server.endpoint)：超时或不可达")
         }
         let connectMs = Int(Date().timeIntervalSince(t0) * 1000)
 
@@ -568,9 +667,16 @@ final class TunnelManager: ObservableObject {
             let remote = try await SyncService.fetchNodes(base: syncConfig.baseURL, token: syncConfig.token)
             let incoming = SyncService.toServers(remote)
             let manual = servers.filter { !$0.isRemote }
-            servers = manual + incoming
-            if selectedID == nil || !servers.contains(where: { $0.id == selectedID }) {
-                selectedID = servers.first?.id
+            // 云端返回空时不要清空本地，避免一次异常把线路列表洗掉
+            if incoming.isEmpty && !manual.isEmpty {
+                syncConfig.lastMessage = "云端暂无线路，已保留本地列表"
+                saveSync(syncConfig)
+                return false
+            }
+            let merged = manual + incoming
+            servers = merged
+            if selectedID == nil || !merged.contains(where: { $0.id == selectedID }) {
+                selectedID = merged.first?.id
             }
             persistServers()
             syncConfig.lastSync = Date().timeIntervalSince1970
