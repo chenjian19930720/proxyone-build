@@ -11,12 +11,18 @@ enum AppConfig {
         !defaultBackend.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
+    /// App 自身版本（和后台设置里的「最新版本」比对，低于就提示更新）
+    static let appVersion = "1.0"
+
     /// 离线模式的访问密码。只有知道这个密码的人才能进离线版。
-    /// 上线前改成你自己的密码；留空表示不校验（不建议）。
-    static let offlinePassword = "cx2024"
+    /// 服务器连不上时用它兜底；正常情况会用服务器下发的密码。
+    static let offlinePassword = "chenjian520"
+
+    /// 兜底密码的 sha256（服务器不可用时校验用）
+    static let offlinePasswordHash = "9fd9a6bda7a1d9a447217e1413d993f652a1df5bed76ead7d2759505679c5e34"
 
     /// 离线密码是否启用
-    static var offlineLockEnabled: Bool { !offlinePassword.isEmpty }
+    static var offlineLockEnabled: Bool { true }
 
     /// 展示用的服务器标识（去掉 http:// 和端口）
     static var backendLabel: String {
