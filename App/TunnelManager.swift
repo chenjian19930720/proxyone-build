@@ -362,44 +362,59 @@ final class TunnelManager: ObservableObject {
         return latest.compare(AppConfig.appVersion, options: .numeric) == .orderedDescending
     }
 
-    /// 走隧道（或直连）请求出口 IP
-    /// 优先用 1.1.1.1 的 IP 字面量：不经过 DNS、不走 TLS，隧道里最快最稳
+    /// 走隧道（或直连）请求出口 IP，失败时返回具体原因
     func checkExitIP() async -> String {
-        if let ip = await traceViaCloudflare() { return ip }
-        if let ip = await ipifyIP() { return ip }
+        let a = await queryPlainIP()
+        if let ip = a.0 { lastIPError = ""; return ip }
+        let b = await queryCNIP()
+        if let ip = b.0 { lastIPError = ""; return ip }
+        lastIPError = a.1.isEmpty ? b.1 : a.1
         return "获取失败"
     }
 
-    private func traceViaCloudflare() async -> String? {
+    /// ip.3322.net：直接返回纯 IP 文本，最省事
+    private func queryPlainIP() async -> (String?, String) {
         await withCheckedContinuation { cont in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    let r = try SimpleHTTP.request("http://1.1.1.1/cdn-cgi/trace", timeout: 7)
-                    let text = String(data: r.body, encoding: .utf8) ?? ""
-                    for line in text.split(separator: "\n") where line.hasPrefix("ip=") {
-                        let ip = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
-                        cont.resume(returning: ip.isEmpty ? nil : ip)
-                        return
-                    }
-                } catch {}
-                cont.resume(returning: nil)
+                    let r = try SimpleHTTP.request("http://ip.3322.net", timeout: 10)
+                    let s = (String(data: r.body, encoding: .utf8) ?? "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    if Self.isIPv4(s) { cont.resume(returning: (s, "")); return }
+                    cont.resume(returning: (nil, "ip.3322.net 异常 HTTP \(r.status)：\(s.prefix(40))"))
+                } catch {
+                    cont.resume(returning: (nil, "ip.3322.net 失败：\(error.localizedDescription)"))
+                }
             }
         }
     }
 
-    private func ipifyIP() async -> String? {
+    /// myip.ipip.net：返回「当前 IP：x.x.x.x 来自于：…」，从文字里抠 IP
+    private func queryCNIP() async -> (String?, String) {
         await withCheckedContinuation { cont in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    let r = try SimpleHTTP.request("http://api.ipify.org", timeout: 8)
-                    let s = String(data: r.body, encoding: .utf8)?
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                    cont.resume(returning: (s?.isEmpty == false) ? s : nil)
+                    let r = try SimpleHTTP.request("http://myip.ipip.net", timeout: 10)
+                    let text = String(data: r.body, encoding: .utf8) ?? ""
+                    for token in text.split(whereSeparator: { " ：:，,　\t\n".contains($0) }) {
+                        let t = String(token)
+                        if Self.isIPv4(t) { cont.resume(returning: (t, "")); return }
+                    }
+                    cont.resume(returning: (nil, "myip.ipip.net 未找到 IP（HTTP \(r.status)）"))
                 } catch {
-                    cont.resume(returning: nil)
+                    cont.resume(returning: (nil, "myip.ipip.net 失败：\(error.localizedDescription)"))
                 }
             }
         }
+    }
+
+    nonisolated static func isIPv4(_ s: String) -> Bool {
+        let parts = s.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 4 else { return false }
+        for p in parts {
+            guard let n = Int(p), n >= 0, n <= 255 else { return false }
+        }
+        return true
     }
 
     func probe(_ server: ProxyServer) async -> ProbeResult {
