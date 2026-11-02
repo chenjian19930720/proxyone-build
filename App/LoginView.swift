@@ -160,6 +160,34 @@ struct LoginView: View {
         }
     }
 
+    private func field(icon: String, placeholder: String, text: Binding<String>,
+                       secure: Bool = false, keyboard: UIKeyboardType = .default) -> some View {
+        HStack(spacing: 11) {
+            Image(systemName: icon)
+                .font(.system(size: 13))
+                .foregroundColor(.white.opacity(0.3))
+                .frame(width: 18)
+            if secure {
+                SecureField(placeholder, text: text)
+                    .font(.system(size: 14))
+                    .foregroundColor(.white)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            } else {
+                TextField(placeholder, text: text)
+                    .font(.system(size: 14))
+                    .foregroundColor(.white)
+                    .keyboardType(keyboard)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .background(RoundedRectangle(cornerRadius: 13).fill(Color.white.opacity(0.05)))
+        .overlay(RoundedRectangle(cornerRadius: 13).stroke(Theme.line, lineWidth: 1))
+    }
+
     private func doLogin() async {
         busy = true
         error = nil
