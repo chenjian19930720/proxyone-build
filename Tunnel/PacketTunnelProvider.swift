@@ -80,6 +80,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             "up": t.up,
             "down": t.down,
             "server": server?.endpoint ?? "-",
+            "targets": engine?.targetsText ?? "",
             "log": TunnelLog.read()
         ]
         let data = (try? JSONSerialization.data(withJSONObject: stats)) ?? Data()
