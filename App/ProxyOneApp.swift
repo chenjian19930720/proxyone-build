@@ -29,7 +29,10 @@ struct ProxyOneApp: App {
             }
             .environmentObject(tunnel)
             .preferredColorScheme(.dark)
-            .task { await tunnel.load() }
+            .task {
+                await tunnel.load()
+                await tunnel.pullConfig()
+            }
             .onReceive(NotificationCenter.default.publisher(for: .proxyOneLogout)) { _ in
                 withAnimation { stage = 1 }
             }
