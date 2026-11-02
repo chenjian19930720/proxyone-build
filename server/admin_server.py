@@ -59,7 +59,8 @@ CREATE TABLE IF NOT EXISTS nodes (
     password TEXT DEFAULT '',
     grp      TEXT DEFAULT '默认',
     enabled  INTEGER DEFAULT 1,
-    updated  INTEGER DEFAULT 0
+    updated  INTEGER DEFAULT 0,
+    protocol TEXT DEFAULT 'socks5'
 );
 CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
@@ -81,6 +82,11 @@ def db():
 def init_db():
     with closing(db()) as c:
         c.executescript(SCHEMA)
+        # 老库补列（协议字段是后加的）
+        cols = [r["name"] for r in c.execute("PRAGMA table_info(nodes)")]
+        if "protocol" not in cols:
+            c.execute("ALTER TABLE nodes ADD COLUMN protocol TEXT DEFAULT 'socks5'")
+            print("[migrate] nodes.protocol 已添加")
         # 默认离线密码
         row = c.execute("SELECT value FROM settings WHERE key='offline_password'").fetchone()
         if not row:
@@ -213,14 +219,14 @@ def list_nodes(group=None, only_enabled=False):
 def upsert_node(n):
     with WRITE_LOCK, closing(db()) as c:
         c.execute(
-            "INSERT INTO nodes(id,name,host,port,username,password,grp,enabled,updated)"
-            " VALUES(?,?,?,?,?,?,?,?,?)"
+            "INSERT INTO nodes(id,name,host,port,username,password,grp,enabled,updated,protocol)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?)"
             " ON CONFLICT(id) DO UPDATE SET name=excluded.name,host=excluded.host,port=excluded.port,"
             " username=excluded.username,password=excluded.password,grp=excluded.grp,"
-            " enabled=excluded.enabled,updated=excluded.updated",
+            " enabled=excluded.enabled,updated=excluded.updated,protocol=excluded.protocol",
             (n["id"], n.get("name", ""), n["host"], int(n["port"]), n.get("username", ""),
              n.get("password", ""), n.get("group", "默认"), 1 if n.get("enabled", True) else 0,
-             int(time.time())))
+             int(time.time()), n.get("protocol", "socks5")))
         c.commit()
 
 
@@ -508,7 +514,8 @@ class Handler(BaseHTTPRequestHandler):
             item = {"id": node.get("id") or secrets.token_hex(8),
                     "name": (node.get("name") or host).strip(), "host": host, "port": port,
                     "username": node.get("username") or "", "password": node.get("password") or "",
-                    "group": node.get("group") or "默认", "enabled": node.get("enabled", True)}
+                    "group": node.get("group") or "默认", "enabled": node.get("enabled", True),
+                    "protocol": (node.get("protocol") or "socks5").lower()}
             upsert_node(item)
             return self.send_json({"ok": True, "node": item})
 
