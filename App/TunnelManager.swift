@@ -19,6 +19,7 @@ final class TunnelManager: ObservableObject {
     @Published var connectedSince: Date?
     @Published var bytesUp: UInt64 = 0
     @Published var bytesDown: UInt64 = 0
+    @Published var lastIPError: String = ""
     @Published var alwaysOn: Bool = SharedStore.alwaysOn
     @Published var networkUp: Bool = true
     @Published var syncConfig: SyncConfig = SharedStore.syncConfig
