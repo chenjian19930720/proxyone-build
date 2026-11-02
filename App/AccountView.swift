@@ -30,6 +30,7 @@ struct AccountView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
                         profileCard
+                        if tunnel.hasUpdate { updateCard }
                         privilegeCard
                         toolsCard
                         aboutCard
@@ -132,6 +133,38 @@ struct AccountView: View {
         let days = Int((exp - Date().timeIntervalSince1970) / 86400)
         let d = f.string(from: Date(timeIntervalSince1970: exp))
         return expired ? "已于 \(d) 到期" : "有效期至 \(d)（剩 \(max(0, days)) 天）"
+    }
+
+    // MARK: 版本更新
+    private var updateCard: some View {
+        Button {
+            if let url = URL(string: SharedStore.updateURL), !SharedStore.updateURL.isEmpty {
+                UIApplication.shared.open(url)
+            }
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle().fill(Theme.warn.opacity(0.16)).frame(width: 34, height: 34)
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.system(size: 15))
+                        .foregroundColor(Theme.warn)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("发现新版本 \(SharedStore.latestVersion)")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.9))
+                    Text(SharedStore.updateURL.isEmpty ? "请联系管理员获取新版安装包" : "点这里下载更新")
+                        .font(.system(size: 10.5))
+                        .foregroundColor(.white.opacity(0.35))
+                }
+                Spacer()
+                Text("当前 \(AppConfig.appVersion)")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.25))
+            }
+            .card(padding: 14, radius: 16)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: 权限 / 权益
