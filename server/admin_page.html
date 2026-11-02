@@ -140,7 +140,13 @@ function nodesPane(){
     <div class="row" style="margin-top:10px">
       <input id="n_user" placeholder="用户名（可空）">
       <input id="n_pass" placeholder="密码（可空）">
-      <input id="n_group" placeholder="分组，如 香港">
+      <input id="n_group" placeholder="城市，如 杭州">
+      <select id="n_proto">
+        <option value="socks5">SOCKS5</option>
+        <option value="http">HTTP 代理</option>
+        <option value="trojan">Trojan</option>
+        <option value="ss">Shadowsocks</option>
+      </select>
     </div>
     <div style="height:14px"></div>
     <div class="row">
@@ -155,9 +161,11 @@ function nodesPane(){
 }
 
 function nodeTable(){
-  return `<table><thead><tr><th>名称</th><th>服务器</th><th>端口</th><th>城市/分组</th><th>状态</th><th></th></tr></thead><tbody>`
+  return `<table><thead><tr><th>名称</th><th>协议</th><th>服务器</th><th>端口</th><th>城市/分组</th><th>状态</th><th></th></tr></thead><tbody>`
   + nodes.map(n=>`<tr>
-      <td>${esc(n.name)}</td><td class="mono">${esc(n.host)}</td><td class="mono">${n.port}</td>
+      <td>${esc(n.name)}</td>
+      <td><span class="tag" style="background:rgba(52,211,153,.14);color:#34d399">${(n.protocol||'socks5').toUpperCase()}</span></td>
+      <td class="mono">${esc(n.host)}</td><td class="mono">${n.port}</td>
       <td>${n.group?'<span class="tag">'+esc(n.group)+'</span>':'<span class="muted">—</span>'}</td>
       <td class="${n.enabled===false?'off':'ok'}">${n.enabled===false?'停用':'启用'}</td>
       <td style="text-align:right;white-space:nowrap">
@@ -282,7 +290,8 @@ function logout(){ token=''; localStorage.removeItem('token'); render(); }
 async function addNode(){
   const n={name:$('#n_name').value.trim(),host:$('#n_host').value.trim(),
     port:parseInt($('#n_port').value||'0'),username:$('#n_user').value.trim(),
-    password:$('#n_pass').value,group:$('#n_group').value.trim()||'默认'};
+    password:$('#n_pass').value,group:$('#n_group').value.trim()||'默认',
+    protocol:$('#n_proto').value};
   if(!n.name||!n.host||!n.port) return toast('名称/地址/端口必填');
   try{ await api('/api/nodes',{node:n}); toast('已添加');
     ['n_name','n_host','n_user','n_pass','n_group'].forEach(k=>$('#'+k).value=''); loadAll();
