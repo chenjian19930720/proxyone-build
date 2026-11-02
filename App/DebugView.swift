@@ -51,6 +51,19 @@ struct DebugView: View {
                     row("下行", humanBytes(tunnel.bytesDown))
                 }
 
+                Section(header: Text("经过代理的连接"),
+                        footer: Text("这里列出手机所有 App 经过隧道的目标地址。如果微信、浏览器、支付宝用到的 IP 都出现在这里，说明全局代理生效。系统不提供 App 名称，只能看到目标 IP。")) {
+                    if tunnel.recentTargets.isEmpty {
+                        Text("还没有连接记录")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text(tunnel.recentTargets)
+                            .font(.system(size: 10.5, design: .monospaced))
+                            .lineSpacing(2)
+                    }
+                }
+
                 Section(header: Text("SOCKS5 诊断"),
                         footer: Text("直接从我这边探测服务器端口和 SOCKS5 握手，能区分「TCP 连不上 / 不是 SOCKS5 / 密码错 / 正常」。")) {
                     Button(probing ? "探测中…" : "重新探测") {
