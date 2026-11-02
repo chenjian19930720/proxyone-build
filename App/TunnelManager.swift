@@ -16,6 +16,9 @@ final class TunnelManager: ObservableObject {
     @Published var lastError: String?
     @Published var activeConnections: Int = 0
     @Published var tunnelLog: String = ""
+    @Published var connectedSince: Date?
+    @Published var bytesUp: UInt64 = 0
+    @Published var bytesDown: UInt64 = 0
     @Published var alwaysOn: Bool = SharedStore.alwaysOn
     @Published var networkUp: Bool = true
     @Published var syncConfig: SyncConfig = SharedStore.syncConfig
@@ -52,7 +55,20 @@ final class TunnelManager: ObservableObject {
             queue: .main
         ) { [weak self] note in
             guard let conn = note.object as? NEVPNConnection else { return }
-            Task { @MainActor in self?.status = conn.status }
+            Task { @MainActor in
+                guard let self else { return }
+                self.status = conn.status
+                switch conn.status {
+                case .connected:
+                    if self.connectedSince == nil { self.connectedSince = Date() }
+                case .disconnected, .invalid:
+                    self.connectedSince = nil
+                    self.bytesUp = 0
+                    self.bytesDown = 0
+                default:
+                    break
+                }
+            }
         }
 
         // 网络变化：断网时记录，恢复后如果开了「强制保持连接」就立刻拉起隧道
@@ -219,6 +235,8 @@ final class TunnelManager: ObservableObject {
                         Task { @MainActor in
                             self.activeConnections = obj["active"] as? Int ?? 0
                             self.tunnelLog = obj["log"] as? String ?? ""
+                            self.bytesUp = (obj["up"] as? NSNumber)?.uint64Value ?? 0
+                            self.bytesDown = (obj["down"] as? NSNumber)?.uint64Value ?? 0
                         }
                     }
                     cont.resume()
@@ -317,6 +335,17 @@ final class TunnelManager: ObservableObject {
         var ok: Bool
         var ms: Int
         var detail: String
+    }
+
+    /// 拉取后台配置（离线密码、公告），启动时调用
+    func pullConfig() async {
+        let base = syncConfig.baseURL.isEmpty ? AppConfig.defaultBackend : syncConfig.baseURL
+        guard !base.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        guard let cfg = try? await SyncService.fetchConfig(base: base) else { return }
+        if let h = cfg.offline_password_sha256, !h.isEmpty {
+            SharedStore.offlineHash = h
+        }
+        SharedStore.announcement = cfg.announcement ?? ""
     }
 
     /// 走隧道（或直连）请求出口 IP
