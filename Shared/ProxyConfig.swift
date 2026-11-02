@@ -142,6 +142,17 @@ enum SharedStore {
         set { defaults.set(newValue, forKey: "announcement.v1") }
     }
 
+    /// 后台下发的最新版本与下载地址
+    static var latestVersion: String {
+        get { defaults.string(forKey: "latest.version.v1") ?? "" }
+        set { defaults.set(newValue, forKey: "latest.version.v1") }
+    }
+
+    static var updateURL: String {
+        get { defaults.string(forKey: "update.url.v1") ?? "" }
+        set { defaults.set(newValue, forKey: "update.url.v1") }
+    }
+
     static var accountName: String {
         get { defaults.string(forKey: "account.name.v1") ?? "" }
         set { defaults.set(newValue, forKey: "account.name.v1") }
