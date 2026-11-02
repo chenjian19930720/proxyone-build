@@ -20,6 +20,7 @@ final class TunnelManager: ObservableObject {
     @Published var bytesUp: UInt64 = 0
     @Published var bytesDown: UInt64 = 0
     @Published var lastIPError: String = ""
+    @Published var recentTargets: String = ""
     @Published var alwaysOn: Bool = SharedStore.alwaysOn
     @Published var networkUp: Bool = true
     @Published var syncConfig: SyncConfig = SharedStore.syncConfig
@@ -242,6 +243,7 @@ final class TunnelManager: ObservableObject {
                             self.tunnelLog = obj["log"] as? String ?? ""
                             self.bytesUp = (obj["up"] as? NSNumber)?.uint64Value ?? 0
                             self.bytesDown = (obj["down"] as? NSNumber)?.uint64Value ?? 0
+                            self.recentTargets = obj["targets"] as? String ?? ""
                         }
                     }
                     cont.resume()
