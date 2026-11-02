@@ -74,8 +74,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)?) {
+        let t = engine?.traffic ?? (up: UInt64(0), down: UInt64(0))
         let stats: [String: Any] = [
             "active": engine?.activeConnections ?? 0,
+            "up": t.up,
+            "down": t.down,
             "server": server?.endpoint ?? "-",
             "log": TunnelLog.read()
         ]
