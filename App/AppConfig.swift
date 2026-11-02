@@ -4,7 +4,7 @@ import Foundation
 enum AppConfig {
     /// App 内置的服务器地址：用户不需要填，也看不到输入框。
     /// 上线时改成你的域名，例如 "https://ip.example.com"
-    static let defaultBackend = "http://192.168.3.2:8787"
+    static let defaultBackend = "http://42.194.237.113:8787"
 
     /// 内置地址是否已经配置好
     static var hasBuiltinBackend: Bool {
