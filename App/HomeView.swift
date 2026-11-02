@@ -12,8 +12,6 @@ struct HomeView: View {
     @State private var alwaysOnLocal = SharedStore.alwaysOn
     @State private var now = Date()
     @State private var announcementText = SharedStore.announcement
-    private let statsTimer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
-    private let clockTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ZStack {
@@ -55,12 +53,18 @@ struct HomeView: View {
         .onChange(of: tunnel.alwaysOn) { v in
             alwaysOnLocal = v
         }
-        .onReceive(statsTimer) { _ in
-            if tunnel.isOn { Task { await tunnel.refreshStats() } }
-        }
-        .onReceive(clockTimer) { _ in
-            now = Date()
-            announcementText = SharedStore.announcement
+        .task(id: tunnel.isOn) {
+            // 用异步循环代替 Timer：SwiftUI struct 每次重建都会新建 Timer，
+            // 会导致刷新悄悄停掉，流量一直显示 0。
+            while !Task.isCancelled {
+                if tunnel.isOn {
+                    await tunnel.refreshStats()
+                }
+                now = Date()
+                let a = SharedStore.announcement
+                if a != announcementText { announcementText = a }
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+            }
         }
     }
 
@@ -151,7 +155,8 @@ struct HomeView: View {
 
     private func smartConnect() async {
         await tunnel.refreshLatencies()
-        guard let best = tunnel.fastestNodes(limit: 1).first else { return }
+        // 测速全失败时退回第一条，不要让按钮变成没反应
+        guard let best = tunnel.fastestNodes(limit: 1).first ?? tunnel.servers.first else { return }
         if tunnel.isOn {
             await tunnel.activate(best)
         } else {
@@ -197,28 +202,48 @@ struct HomeView: View {
 
     // MARK: IP
     private var ipHeader: some View {
-        VStack(spacing: 5) {
-            Text(tunnel.isOn ? "出口 IP" : "本机 IP")
-                .font(.system(size: 11.5, weight: .medium))
+        VStack(spacing: 4) {
+            Text(tunnel.isOn ? "全局出口 IP" : "本机 IP")
+                .font(.system(size: 10.5, weight: .medium))
                 .foregroundColor(.white.opacity(0.4))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 3)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 2.5)
                 .background(Capsule().fill(Color.white.opacity(0.05)))
 
             Button {
                 Task { await refreshIP() }
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Text(loadingIP ? "查询中…" : exitIP)
-                        .font(.system(size: 27, weight: .semibold, design: .rounded))
+                        .font(.system(size: 21, weight: .semibold, design: .rounded))
                         .foregroundColor(.white)
                         .monospacedDigit()
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white.opacity(0.35))
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white.opacity(0.32))
                 }
             }
             .buttonStyle(.plain)
+
+            // 归属地：有值才显示
+            if !tunnel.exitIPLocation.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "mappin.and.ellipse")
+                        .font(.system(size: 8.5))
+                    Text(tunnel.exitIPLocation)
+                        .font(.system(size: 10))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .foregroundColor(.white.opacity(0.42))
+                .padding(.horizontal, 20)
+            }
+
+            if tunnel.isOn {
+                Text("本机所有 App 共用这个出口")
+                    .font(.system(size: 9))
+                    .foregroundColor(.white.opacity(0.22))
+            }
         }
     }
 
