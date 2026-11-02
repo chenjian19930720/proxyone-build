@@ -350,6 +350,15 @@ final class TunnelManager: ObservableObject {
             SharedStore.offlineHash = h
         }
         SharedStore.announcement = cfg.announcement ?? ""
+        SharedStore.latestVersion = cfg.app_version ?? ""
+        SharedStore.updateURL = cfg.app_update_url ?? ""
+    }
+
+    /// 是否有新版本
+    var hasUpdate: Bool {
+        let latest = SharedStore.latestVersion
+        guard !latest.isEmpty else { return false }
+        return latest.compare(AppConfig.appVersion, options: .numeric) == .orderedDescending
     }
 
     /// 走隧道（或直连）请求出口 IP
